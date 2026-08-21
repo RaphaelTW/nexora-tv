@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StreamPlayer } from '@/components/StreamPlayer';
@@ -8,27 +9,32 @@ import { colors, gradients, radius, spacing } from '@/theme/tokens';
 
 export default function PlayerScreen() {
   const { currentChannel, toggleFavorite, isFavorite } = useApp();
+  const { width, height } = useWindowDimensions();
   if (!currentChannel) {
     return <View style={styles.center}><Text style={styles.emptyTitle}>Nenhum canal selecionado</Text><Pressable onPress={() => router.replace('/' as never)}><Text style={styles.link}>Voltar ao início</Text></Pressable></View>;
   }
   const favorite = isFavorite(currentChannel.id);
   return (
-    <View style={styles.root}>
-      <View style={styles.top}><Text onPress={() => router.back()} style={styles.back}>← VOLTAR</Text><Text style={styles.brand}>NEXORA PLAYER</Text></View>
-      <View style={styles.playerFrame}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={currentChannel} /></View></LinearGradient></View>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
+      <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}><Text style={styles.back}>← VOLTAR</Text></Pressable><Text style={styles.brand}>NEXORA PLAYER</Text></View>
+      <View style={[styles.playerFrame, Platform.OS === 'web' && { maxWidth: Math.min(1500, width - 36, Math.max(320, (height - 190) * 16 / 9)) }]}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={currentChannel} /></View></LinearGradient></View>
       <View style={styles.info}>
         <View style={styles.left}><Text style={styles.live}>● AO VIVO</Text><Text style={styles.title}>{currentChannel.name}</Text><Text style={styles.meta}>{currentChannel.flag || '🌍'} {currentChannel.countryName || currentChannel.countryCode} · {currentChannel.group || 'Geral'}{currentChannel.quality ? ` · ${currentChannel.quality}` : ''}</Text></View>
         <Pressable onPress={() => void toggleFavorite(currentChannel)} style={styles.favorite}><Text style={styles.favoriteText}>{favorite ? '♥ FAVORITO' : '♡ FAVORITAR'}</Text></Pressable>
       </View>
       <Text style={styles.note}>A disponibilidade do sinal depende do provedor original. Geobloqueio, CORS e indisponibilidade temporária podem impedir alguns canais.</Text>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.black, padding: spacing.lg },
+  root: { flex: 1, backgroundColor: colors.black },
+  content: { flexGrow: 1, padding: spacing.lg },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
   back: { color: colors.green, fontWeight: '900', fontSize: 11, letterSpacing: 1 },
+  backButton: { minWidth: 88, minHeight: 44, justifyContent: 'center' },
   brand: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   playerFrame: { width: '100%', maxWidth: 1500, alignSelf: 'center' },
   playerBorder: { padding: 2, borderRadius: radius.lg },

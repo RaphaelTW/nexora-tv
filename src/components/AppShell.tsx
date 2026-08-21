@@ -2,6 +2,7 @@ import React from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, gradients, radius, spacing } from '@/theme/tokens';
 
 const nav = [
@@ -17,6 +18,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   const pathname = usePathname();
   const isTV = Boolean((Platform as any).isTV);
   const wide = isTV || width >= 900;
+  const insets = useSafeAreaInsets();
 
   const content = (
     <View style={styles.page}>
@@ -55,9 +57,9 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   }
 
   return (
-    <View style={styles.rootMobile}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.mobileContent}>{content}</ScrollView>
-      <View style={styles.bottomNav}>
+    <SafeAreaView style={styles.rootMobile} edges={['top', 'left', 'right']}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.mobileContent, { paddingBottom: 86 + insets.bottom }]}>{content}</ScrollView>
+      <View style={[styles.bottomNav, { bottom: Math.max(10, insets.bottom) }]}>
         {nav.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
@@ -68,7 +70,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
           );
         })}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green },
   liveText: { color: colors.text, fontWeight: '800', fontSize: 10, letterSpacing: 1 },
   bottomNav: { position: 'absolute', left: 10, right: 10, bottom: 10, height: 70, borderRadius: 24, borderWidth: 1, borderColor: '#1A1A1A', backgroundColor: '#080808EE', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  bottomItem: { alignItems: 'center', gap: 3, minWidth: 56 },
+  bottomItem: { alignItems: 'center', justifyContent: 'center', gap: 3, minWidth: 56, minHeight: 54, paddingHorizontal: 4 },
   bottomIcon: { color: colors.muted, fontSize: 20 },
   bottomLabel: { color: colors.muted, fontSize: 9, fontWeight: '700' }
 });

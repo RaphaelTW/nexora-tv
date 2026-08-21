@@ -14,14 +14,15 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { countries, loadingCountries, syncing, pinnedCountries, togglePinnedCountry, history } = useApp();
   const cols = width >= 1300 ? 4 : width >= 900 ? 3 : width >= 620 ? 3 : 2;
+  const compact = width < 620;
   const pinned = useMemo(() => pinnedCountries.map((code) => countries.find((country) => country.code === code)).filter(Boolean), [countries, pinnedCountries]);
 
   return (
     <AppShell title="WORLD SIGNAL NETWORK">
-      <View style={styles.hero}>
-        <View style={styles.heroCopy}>
+      <View style={[styles.hero, compact && styles.heroCompact]}>
+        <View style={[styles.heroCopy, compact && styles.heroCopyCompact]}>
           <Text style={styles.kicker}>TRANSMISSÃO SEM FRONTEIRAS</Text>
-          <Text style={styles.title}>O mundo inteiro,{`\n`}um sinal de cada vez.</Text>
+          <Text style={[styles.title, compact && styles.titleCompact]}>O mundo inteiro,{`\n`}um sinal de cada vez.</Text>
           <Text style={styles.subtitle}>Países e playlists sincronizados diretamente do ecossistema IPTV-org, com cache local para abrir rápido.</Text>
           <View style={styles.actions}>
             <Pressable onPress={() => router.push('/explore' as never)}>
@@ -31,7 +32,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.syncLine}><View style={[styles.syncDot, syncing && styles.syncingDot]} /><Text style={styles.syncText}>{syncing ? 'Sincronizando catálogo...' : 'Catálogo pronto'}</Text></View>
         </View>
-        <WorldOrb />
+        <View style={compact && styles.orbCompact}><WorldOrb /></View>
       </View>
 
       <SectionTitle title="Seus países" action="ver todos" onPress={() => router.push('/explore' as never)} />
@@ -65,8 +66,12 @@ function SectionTitle({ title, action, onPress }: { title: string; action?: stri
 const styles = StyleSheet.create({
   hero: { minHeight: 420, borderRadius: radius.xl, borderWidth: 1, borderColor: '#191919', backgroundColor: '#040404', padding: spacing.xl, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', overflow: 'hidden' },
   heroCopy: { flex: 1, maxWidth: 760 },
+  heroCopyCompact: { width: '100%', flex: 0 },
+  heroCompact: { minHeight: 0, padding: spacing.lg, flexDirection: 'column', alignItems: 'stretch', gap: 22 },
   kicker: { color: colors.green, fontSize: 11, letterSpacing: 2.4, fontWeight: '900', marginBottom: 16 },
   title: { color: colors.text, fontSize: 48, lineHeight: 53, fontWeight: '900', letterSpacing: -1.8 },
+  titleCompact: { fontSize: 34, lineHeight: 38, letterSpacing: -1 },
+  orbCompact: { alignItems: 'center', transform: [{ scale: 0.82 }], marginVertical: -18 },
   subtitle: { color: colors.muted, fontSize: 15, lineHeight: 23, maxWidth: 620, marginTop: 18 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 26 },
   primaryButton: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: radius.pill },
