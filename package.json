@@ -1,0 +1,50 @@
+{
+  "name": "nexora-tv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TV global ao vivo por país para Android, Android TV e Web, alimentada pelo IPTV-org.",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "android:mobile": "cross-env EXPO_TV=0 expo run:android",
+    "android:tv": "cross-env EXPO_TV=1 expo prebuild --clean && expo run:android",
+    "web": "expo start --web",
+    "build:web": "expo export --platform web",
+    "prebuild:mobile": "cross-env EXPO_TV=0 expo prebuild --clean",
+    "prebuild:tv": "cross-env EXPO_TV=1 expo prebuild --clean",
+    "build:apk:mobile": "eas build --platform android --profile preview-mobile",
+    "build:apk:tv": "eas build --platform android --profile preview-tv",
+    "build:aab:mobile": "eas build --platform android --profile production-mobile",
+    "build:aab:tv": "eas build --platform android --profile production-tv",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "expo": "~57.0.1",
+    "expo-build-properties": "~57.0.13",
+    "expo-linear-gradient": "~57.0.1",
+    "expo-router": "~57.0.9",
+    "expo-status-bar": "~57.0.0",
+    "expo-video": "~57.0.2",
+    "hls.js": "^1.7.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "npm:react-native-tvos@0.86.2-0",
+    "react-native-web": "0.21.0"
+  },
+  "devDependencies": {
+    "@react-native-tvos/config-tv": "0.1.6",
+    "@types/react": "~19.2.2",
+    "cross-env": "^7.0.3",
+    "typescript": "~5.9.2",
+    "@types/node": "^22.15.3"
+  },
+  "expo": {
+    "install": {
+      "exclude": [
+        "react-native"
+      ]
+    }
+  }
+}
