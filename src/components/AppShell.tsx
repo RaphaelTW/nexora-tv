@@ -13,7 +13,7 @@ const nav = [
   { label: 'Ajustes', icon: '⚙', href: '/settings' }
 ] as const;
 
-export function AppShell({ children, title }: { children: React.ReactNode; title?: string }) {
+export function AppShell({ children, title, scroll = true }: { children: React.ReactNode; title?: string; scroll?: boolean }) {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
   const isTV = Boolean((Platform as any).isTV);
@@ -51,14 +51,18 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
           </View>
           <Text style={styles.source}>POWERED BY{`\n`}IPTV-ORG</Text>
         </View>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView>
+        {scroll ? <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView> : content}
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.rootMobile} edges={['top', 'left', 'right']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.mobileContent, { paddingBottom: 86 + insets.bottom }]}>{content}</ScrollView>
+      {scroll ? (
+        <ScrollView style={styles.scroll} contentContainerStyle={[styles.mobileContent, { paddingBottom: 86 + insets.bottom }]}>{content}</ScrollView>
+      ) : (
+        <View style={[styles.mobileStatic, { paddingBottom: 76 + insets.bottom }]}>{content}</View>
+      )}
       <View style={[styles.bottomNav, { bottom: Math.max(10, insets.bottom) }]}>
         {nav.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
@@ -91,6 +95,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.black },
   scrollContent: { flexGrow: 1 },
   mobileContent: { paddingBottom: 96 },
+  mobileStatic: { flex: 1 },
   page: { flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, maxWidth: 1500, width: '100%', alignSelf: 'center' },
   topbar: { minHeight: 96, paddingTop: spacing.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brand: { color: colors.text, fontSize: 18, letterSpacing: 4, fontWeight: '900' },

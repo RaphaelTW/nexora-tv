@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 — 2026-08-22
+
+- Corrige a responsividade do painel de país e bandeira em telas mobile.
+- Melhora o desempenho do scroll em catálogos grandes com renderização virtualizada.
+- Adiciona verificação automática e manual de atualizações pelas GitHub Releases.
+- Exibe a versão atual e os dados do desenvolvedor em Ajustes.
+
 ## 1.0.1 — 2026-08-21
 
 - Corrige a responsividade da tela inicial em celulares.
