@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,9 @@ import { WebMetadata } from '@/components/WebMetadata';
 export default function PlayerScreen() {
   const { currentChannel, currentQueue, setCurrentChannel, recordWatch, toggleFavorite, isFavorite } = useApp();
   const { width, height } = useWindowDimensions();
+  const compact = width < 700;
+  const horizontalPadding = compact ? spacing.md : spacing.lg;
+  const playerWidth = Math.min(1500, width - horizontalPadding * 2, Math.max(280, height - (compact ? 300 : 270)) * 16 / 9);
   if (!currentChannel) {
     return <View style={styles.center}><Text style={styles.emptyTitle}>Nenhum canal selecionado</Text><Pressable onPress={() => router.replace('/' as never)}><Text style={styles.link}>Voltar ao início</Text></Pressable></View>;
   }
@@ -84,9 +87,15 @@ export default function PlayerScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
       <WebMetadata title={`${currentChannel.name} — Nexora TV`} description={`Assista ${currentChannel.name} ao vivo no Nexora TV.`} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <View style={[styles.content, { paddingHorizontal: horizontalPadding }]}>
       <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}><Text style={styles.back}>← VOLTAR</Text></Pressable><Text style={styles.brand}>NEXORA PLAYER</Text></View>
-      <View style={[styles.playerFrame, Platform.OS === 'web' && { maxWidth: Math.min(1500, width - 36, Math.max(320, (height - 190) * 16 / 9)) }]}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={activeChannel} retryToken={retryToken} onPlaying={handlePlaying} onError={handleError} /></View></LinearGradient></View>
+      <View style={[styles.playerFrame, { width: playerWidth }]}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={activeChannel} retryToken={retryToken} onPlaying={handlePlaying} onError={handleError} /></View></LinearGradient></View>
+      <View style={[styles.details, { width: playerWidth }]}>
+        <View style={styles.playerActions}>
+          {currentQueue.length > 1 ? <Pressable focusable onPress={() => void changeChannel(-1)} style={styles.favorite}><Text style={styles.favoriteText}>← ANTERIOR</Text></Pressable> : null}
+          <Pressable focusable onPress={() => void toggleFavorite(currentChannel)} style={styles.favorite}><Text style={styles.favoriteText}>{favorite ? '♥ FAVORITO' : '♡ FAVORITAR'}</Text></Pressable>
+          {currentQueue.length > 1 ? <Pressable focusable onPress={() => void changeChannel(1)} style={styles.favorite}><Text style={styles.favoriteText}>PRÓXIMO →</Text></Pressable> : null}
+        </View>
       {playerError ? (
         <View style={styles.offlineBox}>
           <Text style={styles.offlineTitle}>Canal indisponível</Text>
@@ -99,39 +108,36 @@ export default function PlayerScreen() {
         </View>
       ) : null}
       <View style={styles.info}>
-        <View style={styles.left}><Text style={styles.live}>● AO VIVO</Text><Text style={styles.title}>{currentChannel.name}</Text><Text style={styles.meta}>{currentChannel.flag || '🌍'} {currentChannel.countryName || currentChannel.countryCode} · {currentChannel.group || 'Geral'}{currentChannel.quality ? ` · ${currentChannel.quality}` : ''}</Text></View>
-        <View style={styles.playerActions}>
-          {currentQueue.length > 1 ? <Pressable focusable onPress={() => void changeChannel(-1)} style={styles.favorite}><Text style={styles.favoriteText}>← ANTERIOR</Text></Pressable> : null}
-          <Pressable focusable onPress={() => void toggleFavorite(currentChannel)} style={styles.favorite}><Text style={styles.favoriteText}>{favorite ? '♥ FAVORITO' : '♡ FAVORITAR'}</Text></Pressable>
-          {currentQueue.length > 1 ? <Pressable focusable onPress={() => void changeChannel(1)} style={styles.favorite}><Text style={styles.favoriteText}>PRÓXIMO →</Text></Pressable> : null}
-        </View>
+        <Text style={styles.live}>● AO VIVO</Text><Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={2}>{currentChannel.name}</Text><Text style={styles.meta} numberOfLines={2}>{currentChannel.flag || '🌍'} {currentChannel.countryName || currentChannel.countryCode} · {currentChannel.group || 'Geral'}{currentChannel.quality ? ` · ${currentChannel.quality}` : ''}</Text>
       </View>
       <Text style={styles.note}>A disponibilidade do sinal depende do provedor original. Geobloqueio, CORS e indisponibilidade temporária podem impedir alguns canais.</Text>
-      </ScrollView>
+      </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.black },
-  content: { flexGrow: 1, padding: spacing.lg },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+  content: { flex: 1, alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.md },
+  top: { width: '100%', maxWidth: 1500, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
   back: { color: colors.green, fontWeight: '900', fontSize: 11, letterSpacing: 1 },
   backButton: { minWidth: 88, minHeight: 44, justifyContent: 'center' },
   brand: { color: colors.muted, fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  playerFrame: { width: '100%', maxWidth: 1500, alignSelf: 'center' },
+  playerFrame: { maxWidth: 1500, alignSelf: 'center' },
   playerBorder: { padding: 2, borderRadius: radius.lg },
   playerInner: { backgroundColor: colors.black, borderRadius: radius.lg - 2, overflow: 'hidden' },
-  info: { width: '100%', maxWidth: 1500, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 22, gap: 18 },
-  left: { flex: 1 },
+  details: { maxWidth: 1500, alignSelf: 'center' },
+  info: { width: '100%', paddingTop: spacing.md, alignItems: 'center' },
   live: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
-  title: { color: colors.text, fontWeight: '900', fontSize: 28, marginTop: 8 },
-  meta: { color: colors.muted, marginTop: 7, fontSize: 12 },
-  favorite: { borderWidth: 1, borderColor: '#242424', borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12 },
+  title: { color: colors.text, fontWeight: '900', fontSize: 28, marginTop: 6, textAlign: 'center' },
+  titleCompact: { fontSize: 21 },
+  meta: { color: colors.muted, marginTop: 5, fontSize: 12, textAlign: 'center' },
+  favorite: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#242424', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
   favoriteText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  playerActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 },
-  note: { color: '#555', fontSize: 10, lineHeight: 16, maxWidth: 1000, alignSelf: 'center', textAlign: 'center' },
-  offlineBox: { width: '100%', maxWidth: 1500, alignSelf: 'center', borderWidth: 1, borderColor: '#4A2228', backgroundColor: '#15080B', borderRadius: radius.md, padding: spacing.md, marginTop: 14 },
+  playerActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingTop: spacing.sm },
+  note: { color: '#555', fontSize: 10, lineHeight: 14, maxWidth: 1000, alignSelf: 'center', textAlign: 'center', marginTop: spacing.md },
+  offlineBox: { width: '100%', alignSelf: 'center', borderWidth: 1, borderColor: '#4A2228', backgroundColor: '#15080B', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm },
   offlineTitle: { color: colors.red, fontSize: 18, fontWeight: '900' },
   offlineText: { color: colors.muted, marginTop: 6 },
   offlineActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },

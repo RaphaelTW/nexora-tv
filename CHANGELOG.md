@@ -5,6 +5,7 @@
 - Baixa e valida novas atualizações automaticamente dentro do aplicativo no Android.
 - Exibe o modal personalizado do Nexora durante o download e a verificação.
 - Solicita confirmação apenas quando o APK estiver pronto para ser instalado.
+- Compacta o player no Mobile, Android TV e Web, mantendo ações e descrição logo abaixo do vídeo sem rolagem.
 
 ## 1.1.1 — 2026-08-23
 
