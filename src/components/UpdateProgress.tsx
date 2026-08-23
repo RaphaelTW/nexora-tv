@@ -9,7 +9,8 @@ export function UpdateProgress() {
   useEffect(() => subscribeToUpdate(setState), []);
   const busy = state.phase === 'checking' || state.phase === 'downloading' || state.phase === 'verifying';
   const available = state.phase === 'available';
-  const heading = available ? 'NOVA VERSÃO DISPONÍVEL' : state.phase === 'error' ? 'NÃO FOI POSSÍVEL ATUALIZAR' : state.phase === 'info' ? 'SISTEMA ATUALIZADO' : 'ATUALIZAÇÃO DO NEXORA';
+  const ready = state.phase === 'ready';
+  const heading = available ? 'NOVA VERSÃO DISPONÍVEL' : ready ? 'ATUALIZAÇÃO PRONTA' : state.phase === 'error' ? 'NÃO FOI POSSÍVEL ATUALIZAR' : state.phase === 'info' ? 'SISTEMA ATUALIZADO' : 'ATUALIZAÇÃO DO NEXORA';
 
   return <Modal visible={state.phase !== 'idle'} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!busy) dismissUpdateProgress(); }}>
     <View style={styles.backdrop}>
@@ -36,7 +37,10 @@ export function UpdateProgress() {
               <Text style={styles.message}>{state.message}</Text>
             </View>
             {state.phase === 'downloading' || state.phase === 'verifying' ? <><View style={styles.track}><LinearGradient colors={gradients.brand} style={[styles.fill, { width: `${Math.round(state.progress * 100)}%` }]} /></View><Text style={styles.percent}>{Math.round(state.progress * 100)}%</Text></> : null}
-            {!busy ? <Pressable focusable hasTVPreferredFocus onPress={dismissUpdateProgress} style={({ focused }) => [styles.close, focused && styles.focused]}><Text style={styles.closeText}>FECHAR</Text></Pressable> : null}
+            {ready ? <View style={styles.actions}>
+              <Pressable focusable onPress={() => void postponeAvailableUpdate()} style={({ focused }) => [styles.secondary, focused && styles.focused]}><Text style={styles.secondaryText}>DEPOIS</Text></Pressable>
+              <Pressable focusable hasTVPreferredFocus onPress={() => void installAvailableUpdate()} style={({ focused }) => [styles.primaryWrap, focused && styles.focused]}><LinearGradient colors={gradients.brand} style={styles.primary}><Text style={styles.primaryText}>INSTALAR →</Text></LinearGradient></Pressable>
+            </View> : !busy ? <Pressable focusable hasTVPreferredFocus onPress={dismissUpdateProgress} style={({ focused }) => [styles.close, focused && styles.focused]}><Text style={styles.closeText}>FECHAR</Text></Pressable> : null}
           </>}
         </View>
       </LinearGradient>

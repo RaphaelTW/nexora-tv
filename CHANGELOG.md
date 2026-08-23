@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2 — 2026-08-23
+
+- Baixa e valida novas atualizações automaticamente dentro do aplicativo no Android.
+- Exibe o modal personalizado do Nexora durante o download e a verificação.
+- Solicita confirmação apenas quando o APK estiver pronto para ser instalado.
+
 ## 1.1.1 — 2026-08-23
 
 - Corrige a ocultação de canais também ao restaurar playlists do cache.

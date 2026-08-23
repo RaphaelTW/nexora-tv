@@ -25,19 +25,29 @@ export type UpdateState = {
 let state: UpdateState = { phase: 'idle', progress: 0 };
 let pendingRelease: Release | null = null;
 let pendingAsset: Asset | undefined;
+let downloadedUpdateUri: string | null = null;
 const listeners = new Set<(next: UpdateState) => void>();
 function publish(next: UpdateState) { state = next; listeners.forEach((listener) => listener(next)); }
 export function subscribeToUpdate(listener: (next: UpdateState) => void) { listener(state); listeners.add(listener); return () => { listeners.delete(listener); }; }
 export function dismissUpdateProgress() { publish({ phase: 'idle', progress: 0 }); }
 export async function postponeAvailableUpdate() {
   if (pendingRelease) await AsyncStorage.setItem(DISMISSED_KEY, pendingRelease.tag_name);
-  pendingRelease = null; pendingAsset = undefined; dismissUpdateProgress();
+  pendingRelease = null; pendingAsset = undefined; downloadedUpdateUri = null; dismissUpdateProgress();
 }
 export async function installAvailableUpdate() {
   const release = pendingRelease; const asset = pendingAsset;
   if (!release) return;
+  if (Platform.OS === 'android' && downloadedUpdateUri) {
+    try {
+      const contentUri = await FileSystem.getContentUriAsync(downloadedUpdateUri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: contentUri, type: 'application/vnd.android.package-archive', flags: 1 });
+    } catch (error) {
+      publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha ao abrir o instalador.' });
+    }
+    return;
+  }
   if (Platform.OS === 'android' && asset) {
-    await downloadAndInstall(asset).catch((error) => publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' }));
+    await downloadUpdate(asset).catch(showDownloadError);
     return;
   }
   dismissUpdateProgress();
@@ -72,25 +82,29 @@ function selectedAsset(release: Release) {
     return name.endsWith('.apk') && (isTV ? name.includes('tv') : !name.includes('tv'));
   });
 }
-async function downloadAndInstall(asset: Asset) {
+function showDownloadError(error: unknown) {
+  publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' });
+}
+
+async function downloadUpdate(asset: Asset) {
   if (!FileSystem.cacheDirectory) throw new Error('Armazenamento temporário indisponível.');
   const destination = `${FileSystem.cacheDirectory}${asset.name}`;
-  publish({ phase: 'downloading', progress: 0, message: `Baixando ${asset.name}` });
+  downloadedUpdateUri = null;
+  publish({ ...state, phase: 'downloading', progress: 0, message: `Baixando ${asset.name}` });
   const task = FileSystem.createDownloadResumable(asset.browser_download_url, destination, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-    publish({ phase: 'downloading', progress: totalBytesExpectedToWrite > 0 ? totalBytesWritten / totalBytesExpectedToWrite : 0, message: `Baixando ${asset.name}` });
+    publish({ ...state, phase: 'downloading', progress: totalBytesExpectedToWrite > 0 ? totalBytesWritten / totalBytesExpectedToWrite : 0, message: `Baixando ${asset.name}` });
   });
   const result = await task.downloadAsync();
   if (!result) throw new Error('Download cancelado.');
   const info = await FileSystem.getInfoAsync(result.uri);
   if (!info.exists || (asset.size && info.size !== asset.size)) throw new Error('O tamanho do APK não corresponde à release.');
   if (asset.digest?.startsWith('sha256:')) {
-    publish({ phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
-    const actual = await sha256File(result.uri, (progress) => publish({ phase: 'verifying', progress, message: 'Validando assinatura SHA-256…' }));
+    publish({ ...state, phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
+    const actual = await sha256File(result.uri, (progress) => publish({ ...state, phase: 'verifying', progress, message: 'Validando assinatura SHA-256…' }));
     if (actual.toLowerCase() !== asset.digest.slice(7).toLowerCase()) throw new Error('A assinatura SHA-256 do APK é inválida.');
   }
-  publish({ phase: 'ready', progress: 1, message: 'Download verificado. Abrindo o instalador…' });
-  const contentUri = await FileSystem.getContentUriAsync(result.uri);
-  await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: contentUri, type: 'application/vnd.android.package-archive', flags: 1 });
+  downloadedUpdateUri = result.uri;
+  publish({ ...state, phase: 'ready', progress: 1, message: 'Atualização baixada e verificada. Deseja instalar agora?' });
 }
 
 export async function checkForUpdate({ showUpToDate = false } = {}) {
@@ -111,6 +125,10 @@ export async function checkForUpdate({ showUpToDate = false } = {}) {
       phase: 'available', progress: 0, version: release.tag_name, title: release.name || `Nexora TV ${release.tag_name}`,
       notes: (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 1200), platform: platformName, assetName: asset?.name
     });
+    if (Platform.OS === 'android') {
+      if (!asset) throw new Error(`APK para ${platformName} não encontrado na release.`);
+      void downloadUpdate(asset).catch(showDownloadError);
+    }
   } catch (error) {
     if (showUpToDate) publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Tente novamente mais tarde.' });
   }
