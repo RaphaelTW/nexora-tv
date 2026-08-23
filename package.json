@@ -1,6 +1,6 @@
 {
   "name": "nexora-tv",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "private": true,
   "description": "TV global ao vivo por país para Android, Android TV e Web, alimentada pelo IPTV-org.",
   "main": "expo-router/entry",
@@ -10,14 +10,15 @@
     "android:mobile": "cross-env EXPO_TV=0 node node_modules/expo/bin/cli run:android",
     "android:tv": "cross-env EXPO_TV=1 node node_modules/expo/bin/cli prebuild --clean && node node_modules/expo/bin/cli run:android",
     "web": "node node_modules/expo/bin/cli start --web",
-    "build:web": "node node_modules/expo/bin/cli export --platform web",
+    "build:web": "node node_modules/expo/bin/cli export --platform web && node scripts/inject-pwa.mjs",
     "prebuild:mobile": "cross-env EXPO_TV=0 node node_modules/expo/bin/cli prebuild --clean",
     "prebuild:tv": "cross-env EXPO_TV=1 node node_modules/expo/bin/cli prebuild --clean",
     "build:apk:mobile": "npx --yes eas-cli@latest build --platform android --profile preview-mobile",
     "build:apk:tv": "npx --yes eas-cli@latest build --platform android --profile preview-tv",
     "build:aab:mobile": "npx --yes eas-cli@latest build --platform android --profile production-mobile",
     "build:aab:tv": "npx --yes eas-cli@latest build --platform android --profile production-tv",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@expo/log-box": "^57.0.3",
@@ -27,9 +28,13 @@
     "expo": "~57.0.1",
     "expo-build-properties": "~57.0.13",
     "expo-constants": "~57.0.13",
+    "expo-crypto": "~57.0.1",
+    "expo-haptics": "~57.0.1",
+    "expo-intent-launcher": "~57.0.1",
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.7",
     "expo-router": "~57.0.9",
+    "expo-screen-orientation": "~57.0.1",
     "expo-status-bar": "~57.0.0",
     "expo-video": "~57.0.2",
     "hls.js": "^1.7.1",
@@ -48,6 +53,7 @@
     "@types/node": "^22.15.3",
     "@types/react": "~19.2.2",
     "cross-env": "^7.0.3",
+    "tsx": "^4.23.12",
     "typescript": "~6.0.3"
   },
   "expo": {

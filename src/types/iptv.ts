@@ -15,6 +15,8 @@ export type Channel = {
   group?: string;
   quality?: string;
   url: string;
+  alternativeUrls?: string[];
+  probeStatus?: 'online' | 'offline' | 'unknown';
   referrer?: string;
   userAgent?: string;
 };

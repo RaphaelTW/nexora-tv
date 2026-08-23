@@ -1,28 +1,27 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { AppShell } from '@/components/AppShell';
 import { ChannelCard } from '@/components/ChannelCard';
 import { RGBLoader } from '@/components/RGBLoader';
 import { useCountryChannels } from '@/hooks/useCountryChannels';
 import { useApp } from '@/state/AppContext';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { filterChannels } from '@/services/channelUtils';
+import { WebMetadata } from '@/components/WebMetadata';
 
 export default function CountryScreen() {
-  const params = useLocalSearchParams<{ code: string }>();
+  const params = useLocalSearchParams<{ code: string; q?: string; group?: string }>();
   const code = String(params.code || '').toUpperCase();
   const { width } = useWindowDimensions();
   const { countries, togglePinnedCountry, pinnedCountries } = useApp();
   const country = countries.find((item) => item.code === code);
   const { channels, loading, refreshing, error, refresh } = useCountryChannels(code);
-  const [query, setQuery] = useState('');
-  const [group, setGroup] = useState('Todos');
+  const [query, setQuery] = useState(params.q || '');
+  const [group, setGroup] = useState(params.group || 'Todos');
+  const [showAllGroups, setShowAllGroups] = useState(false);
   const groups = useMemo(() => ['Todos', ...Array.from(new Set(channels.map((item) => item.group || 'Geral'))).sort()].slice(0, 30), [channels]);
-  const filtered = useMemo(() => channels.filter((channel) => {
-    const matchesGroup = group === 'Todos' || channel.group === group;
-    const q = query.trim().toLowerCase();
-    return matchesGroup && (!q || `${channel.name} ${channel.group || ''}`.toLowerCase().includes(q));
-  }), [channels, group, query]);
+  const filtered = useMemo(() => filterChannels(channels, query, group), [channels, group, query]);
   const cols = width >= 1250 ? 3 : width >= 760 ? 2 : 1;
   const compact = width < 600;
 
@@ -43,13 +42,19 @@ export default function CountryScreen() {
       </View>
 
       <View style={[styles.toolbar, compact && styles.toolbarMobile]}>
-        <TextInput value={query} onChangeText={setQuery} placeholder="Buscar canal..." placeholderTextColor="#666" style={styles.search} />
+        <TextInput value={query} onChangeText={(value) => { setQuery(value); router.setParams({ q: value || undefined }); }} placeholder="Buscar canal..." placeholderTextColor="#666" style={styles.search} />
         <Pressable onPress={refresh} style={styles.refresh}><Text style={styles.refreshText}>{refreshing ? 'ATUALIZANDO...' : '↻ ATUALIZAR'}</Text></Pressable>
       </View>
 
-      <View style={styles.groups}>
-        {groups.map((item) => <Text key={item} onPress={() => setGroup(item)} style={[styles.group, group === item && styles.groupActive]}>{item}</Text>)}
-      </View>
+      <FlatList
+        horizontal
+        data={showAllGroups ? groups : groups.slice(0, 12)}
+        keyExtractor={(item) => item}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.groups}
+        renderItem={({ item }) => <Pressable focusable onPress={() => { setGroup(item); router.setParams({ group: item === 'Todos' ? undefined : item }); }} style={[styles.group, group === item && styles.groupActive]}><Text style={[styles.groupText, group === item && styles.groupTextActive]}>{item}</Text></Pressable>}
+        ListFooterComponent={groups.length > 12 ? <Pressable focusable onPress={() => setShowAllGroups((value) => !value)} style={styles.moreGroups}><Text style={styles.moreGroupsText}>{showAllGroups ? 'MENOS' : `+${groups.length - 12} FILTROS`}</Text></Pressable> : null}
+      />
 
       {loading && !channels.length ? <View style={styles.loader}><RGBLoader label={`Abrindo sinais de ${country?.name || code}...`} /></View> : null}
       {error && !channels.length ? <View style={styles.errorBox}><Text style={styles.errorTitle}>Sem sinal disponível</Text><Text style={styles.errorText}>{error}. Alguns países podem não possuir playlist publicada no momento.</Text></View> : null}
@@ -58,6 +63,7 @@ export default function CountryScreen() {
 
   return (
     <AppShell title={`${country?.name || code} · LIVE`} scroll={false}>
+      <WebMetadata title={`${country?.name || code} — Nexora TV`} description={`Canais ao vivo de ${country?.name || code} no Nexora TV.`} />
       <FlatList
         key={`channels-${cols}`}
         data={filtered}
@@ -74,6 +80,8 @@ export default function CountryScreen() {
         maxToRenderPerBatch={8}
         windowSize={7}
         removeClippedSubviews
+        refreshing={refreshing}
+        onRefresh={refresh}
       />
     </AppShell>
   );
@@ -98,9 +106,13 @@ const styles = StyleSheet.create({
   search: { flex: 1, height: 50, borderRadius: radius.md, borderWidth: 1, borderColor: '#1D1D1D', backgroundColor: '#070707', paddingHorizontal: 16, color: colors.text },
   refresh: { justifyContent: 'center', paddingHorizontal: 16, borderRadius: radius.md, borderWidth: 1, borderColor: '#202020' },
   refreshText: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  groups: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginVertical: 18 },
-  group: { color: colors.muted, borderWidth: 1, borderColor: '#181818', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 8, fontSize: 11 },
-  groupActive: { color: colors.black, backgroundColor: colors.green, borderColor: colors.green, fontWeight: '900' },
+  groups: { gap: 8, marginVertical: 18, paddingRight: 6 },
+  group: { minHeight: 46, justifyContent: 'center', borderWidth: 1, borderColor: '#181818', borderRadius: radius.pill, paddingHorizontal: 14 },
+  groupText: { color: colors.muted, fontSize: 11 },
+  groupActive: { backgroundColor: colors.green, borderColor: colors.green },
+  groupTextActive: { color: colors.black, fontWeight: '900' },
+  moreGroups: { minHeight: 46, justifyContent: 'center', paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: '#303030' },
+  moreGroupsText: { color: colors.green, fontWeight: '900', fontSize: 10 },
   listContent: { paddingBottom: spacing.xxl },
   gridItem: { flex: 1, padding: 5 },
   loader: { paddingVertical: 80 },

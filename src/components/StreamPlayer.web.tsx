@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/theme/tokens';
 import type { Channel } from '@/types/iptv';
 
-export function StreamPlayer({ channel }: { channel: Channel }) {
+export function StreamPlayer({ channel, onError, onPlaying, retryToken = 0 }: { channel: Channel; onError?: (message: string) => void; onPlaying?: () => void; retryToken?: number }) {
   const ref = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,13 +19,17 @@ export function StreamPlayer({ channel }: { channel: Channel }) {
       hls = new Hls({ enableWorker: true, lowLatencyMode: true });
       hls.loadSource(channel.url);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => void video.play().catch(() => undefined));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => void video.play().then(() => onPlaying?.()).catch(() => setError('Reprodução automática bloqueada. Pressione Play para iniciar.')));
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) setError('Este stream não pôde ser aberto no navegador. Pode haver bloqueio de CORS ou geográfico.');
+        if (data.fatal) {
+          const message = 'Este stream não pôde ser aberto no navegador. Pode haver bloqueio de CORS ou geográfico.';
+          setError(message);
+          onError?.(message);
+        }
       });
     } else {
       video.src = channel.url;
-      void video.play().catch(() => undefined);
+      void video.play().then(() => onPlaying?.()).catch(() => setError('Reprodução automática bloqueada. Pressione Play para iniciar.'));
     }
 
     return () => {
@@ -33,7 +37,7 @@ export function StreamPlayer({ channel }: { channel: Channel }) {
       video.removeAttribute('src');
       video.load();
     };
-  }, [channel.url]);
+  }, [channel.url, retryToken]);
 
   return (
     <View style={styles.wrap}>
@@ -42,6 +46,8 @@ export function StreamPlayer({ channel }: { channel: Channel }) {
         controls: true,
         autoPlay: true,
         playsInline: true,
+        onPlay: onPlaying,
+        onError: () => onError?.('O navegador não conseguiu carregar este sinal.'),
         style: { width: '100%', height: '100%', background: '#000', objectFit: 'contain' }
       })}
       {error ? <Text style={styles.error}>{error}</Text> : null}

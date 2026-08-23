@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { fetchCountries } from '@/services/iptv';
 import { readCache, removeAllNexoraData, writeCache } from '@/services/cache';
 import type { Channel, Country } from '@/types/iptv';
+import { toggleFavoriteInList } from '@/services/channelUtils';
 
 const FAVORITES_KEY = 'nexora:favorites';
 const HISTORY_KEY = 'nexora:history';
@@ -64,7 +65,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     (async () => {
       const [cachedCountries, storedFavorites, storedHistory, storedPinned, storedCurrent] = await Promise.all([
-        readCache<Country[]>('countries'),
+        readCache<Country[]>('countries', 24 * 60 * 60 * 1000),
         readJson<Channel[]>(FAVORITES_KEY, []),
         readJson<Channel[]>(HISTORY_KEY, []),
         readJson<string[]>(PINNED_KEY, ['BR', 'PT', 'RU']),
@@ -79,15 +80,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setHistory(storedHistory);
       setPinnedCountries(storedPinned);
       setCurrentChannelState(storedCurrent);
-      await refreshCountries();
+      if (!cachedCountries?.data?.length) await refreshCountries();
     })();
     return () => { active = false; };
   }, [refreshCountries]);
 
   const toggleFavorite = useCallback(async (channel: Channel) => {
-    const next = favorites.some((item) => item.id === channel.id)
-      ? favorites.filter((item) => item.id !== channel.id)
-      : [channel, ...favorites].slice(0, 200);
+    const next = toggleFavoriteInList(favorites, channel);
     setFavorites(next);
     await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
   }, [favorites]);

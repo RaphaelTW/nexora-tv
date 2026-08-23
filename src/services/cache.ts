@@ -3,11 +3,13 @@ import type { CacheEnvelope } from '@/types/iptv';
 
 export const CACHE_PREFIX = 'nexora:';
 
-export async function readCache<T>(key: string): Promise<CacheEnvelope<T> | null> {
+export async function readCache<T>(key: string, maxAgeMs?: number): Promise<CacheEnvelope<T> | null> {
   const raw = await AsyncStorage.getItem(`${CACHE_PREFIX}${key}`);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as CacheEnvelope<T>;
+    const cached = JSON.parse(raw) as CacheEnvelope<T>;
+    if (maxAgeMs && Date.now() - cached.savedAt > maxAgeMs) return null;
+    return cached;
   } catch {
     return null;
   }

@@ -101,11 +101,16 @@ export function parseM3U(content: string, countryCode: string): Channel[] {
     pending = null;
   }
 
-  const seen = new Set<string>();
-  return output.filter((channel) => {
-    const key = `${channel.id}|${channel.url}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const merged = new Map<string, Channel>();
+  for (const channel of output) {
+    const key = channel.id || `${channel.name}|${channel.countryCode}`;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, channel);
+      continue;
+    }
+    const urls = new Set([existing.url, ...(existing.alternativeUrls || []), channel.url]);
+    existing.alternativeUrls = [...urls].filter((url) => url !== existing.url);
+  }
+  return [...merged.values()];
 }

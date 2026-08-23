@@ -6,13 +6,17 @@ import { GradientBorder } from './GradientBorder';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { useApp } from '@/state/AppContext';
 import type { Channel } from '@/types/iptv';
+import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
+import { probeStream } from '@/services/streamProbe';
 
 export function ChannelCard({ channel }: { channel: Channel }) {
   const { isFavorite, toggleFavorite, setCurrentChannel, recordWatch } = useApp();
   const favorite = isFavorite(channel.id);
 
   const play = async () => {
-    await setCurrentChannel(channel);
+    const probeStatus = await probeStream(channel.url);
+    await setCurrentChannel({ ...channel, probeStatus });
     await recordWatch(channel);
     router.push(`/player/${encodeURIComponent(channel.id)}` as never);
   };
@@ -24,7 +28,7 @@ export function ChannelCard({ channel }: { channel: Channel }) {
           <View style={styles.card}>
             <View style={styles.logoWrap}>
               {channel.logo ? (
-                <Image source={{ uri: channel.logo }} style={styles.logo} resizeMode="contain" />
+                <Image source={{ uri: channel.logo, cache: 'force-cache' }} style={styles.logo} resizeMode="contain" resizeMethod="resize" />
               ) : (
                 <Text style={styles.logoFallback}>◉</Text>
               )}
@@ -35,7 +39,7 @@ export function ChannelCard({ channel }: { channel: Channel }) {
             </View>
             <Text
               style={[styles.favorite, favorite && styles.favoriteActive]}
-              onPress={(event) => { event.stopPropagation?.(); void toggleFavorite(channel); }}
+              onPress={(event) => { event.stopPropagation?.(); if (Platform.OS !== 'web') void Haptics.selectionAsync(); void toggleFavorite(channel); }}
             >
               {favorite ? '♥' : '♡'}
             </Text>

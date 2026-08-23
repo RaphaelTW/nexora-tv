@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchCountryChannels } from '@/services/iptv';
 import { readCache, writeCache } from '@/services/cache';
 import type { Channel } from '@/types/iptv';
+import { removeUnavailableChannels } from '@/services/channelHealth';
+import { recordPerformance } from '@/services/performance';
 
 export function useCountryChannels(code: string) {
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -14,7 +16,8 @@ export function useCountryChannels(code: string) {
     setError(null);
     try {
       const latest = await fetchCountryChannels(code);
-      setChannels(latest);
+      const available = await removeUnavailableChannels(latest);
+      setChannels(available);
       await writeCache(`country:${code.toUpperCase()}`, latest);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar a playlist');
@@ -29,13 +32,15 @@ export function useCountryChannels(code: string) {
     setLoading(true);
     setChannels([]);
     (async () => {
-      const cached = await readCache<Channel[]>(`country:${code.toUpperCase()}`);
+      const startedAt = Date.now();
+      const cached = await readCache<Channel[]>(`country:${code.toUpperCase()}`, 6 * 60 * 60 * 1000);
       if (!active) return;
       if (cached?.data) {
         setChannels(cached.data);
         setLoading(false);
       }
-      await refresh(!cached?.data);
+      if (!cached?.data) await refresh(true);
+      await recordPerformance(`country:${code}`, startedAt);
     })();
     return () => { active = false; };
   }, [code, refresh]);

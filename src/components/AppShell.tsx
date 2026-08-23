@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +19,18 @@ export function AppShell({ children, title, scroll = true }: { children: React.R
   const isTV = Boolean((Platform as any).isTV);
   const wide = isTV || width >= 900;
   const insets = useSafeAreaInsets();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const handleKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.key === '/' && target?.tagName !== 'INPUT' && target?.tagName !== 'TEXTAREA') { event.preventDefault(); router.push('/search' as never); }
+      if (event.key === 'Escape') router.back();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   const content = (
     <View style={styles.page}>
@@ -36,20 +48,21 @@ export function AppShell({ children, title, scroll = true }: { children: React.R
   if (wide) {
     return (
       <View style={styles.root}>
-        <View style={styles.sidebar}>
+        <View style={[styles.sidebar, sidebarCollapsed && styles.sidebarCollapsed]}>
           <LinearGradient colors={gradients.brand} style={styles.logoMark}><View style={styles.logoInner}><Text style={styles.logoText}>N</Text></View></LinearGradient>
           <View style={styles.sideNav}>
             {nav.map((item) => {
               const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
               return (
-                <Pressable key={item.href} focusable onPress={() => router.push(item.href as never)} style={[styles.sideItem, active && styles.sideItemActive]}>
+                <Pressable key={item.href} focusable onPress={() => router.push(item.href as never)} style={({ focused }) => [styles.sideItem, (active || focused) && styles.sideItemActive, focused && styles.sideItemFocused]}>
                   <Text style={[styles.sideIcon, active && styles.activeText]}>{item.icon}</Text>
-                  <Text style={[styles.sideLabel, active && styles.activeText]}>{item.label}</Text>
+                  {!sidebarCollapsed ? <Text style={[styles.sideLabel, active && styles.activeText]}>{item.label}</Text> : null}
                 </Pressable>
               );
             })}
           </View>
-          <Text style={styles.source}>POWERED BY{`\n`}IPTV-ORG</Text>
+          <Pressable focusable onPress={() => setSidebarCollapsed((value) => !value)} style={styles.collapse}><Text style={styles.collapseText}>{sidebarCollapsed ? '›' : '‹ RECOLHER'}</Text></Pressable>
+          {!sidebarCollapsed ? <Text style={styles.source}>POWERED BY{`\n`}IPTV-ORG</Text> : null}
         </View>
         {scroll ? <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>{content}</ScrollView> : content}
       </View>
@@ -82,16 +95,19 @@ const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', backgroundColor: colors.black },
   rootMobile: { flex: 1, backgroundColor: colors.black },
   sidebar: { width: 210, padding: spacing.lg, borderRightWidth: 1, borderRightColor: colors.subtle, backgroundColor: '#030303' },
+  sidebarCollapsed: { width: 86, paddingHorizontal: 18, alignItems: 'center' },
   logoMark: { width: 48, height: 48, borderRadius: 16, padding: 2 },
   logoInner: { flex: 1, borderRadius: 14, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' },
   logoText: { color: colors.text, fontWeight: '900', fontSize: 21 },
   sideNav: { gap: 8, marginTop: 46 },
   sideItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, paddingHorizontal: 12, borderRadius: radius.md },
   sideItemActive: { backgroundColor: '#111111' },
+  sideItemFocused: { borderWidth: 2, borderColor: colors.green, transform: [{ scale: 1.04 }] },
   sideIcon: { color: colors.muted, width: 24, fontSize: 20, textAlign: 'center' },
   sideLabel: { color: colors.muted, fontWeight: '700', fontSize: 14 },
   activeText: { color: colors.green },
   source: { marginTop: 'auto', color: '#494949', fontSize: 10, letterSpacing: 1.2, lineHeight: 16 },
+  collapse: { marginTop: 'auto', minHeight: 44, justifyContent: 'center' }, collapseText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
   scroll: { flex: 1, backgroundColor: colors.black },
   scrollContent: { flexGrow: 1 },
   mobileContent: { paddingBottom: 96 },

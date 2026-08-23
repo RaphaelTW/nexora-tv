@@ -1,0 +1,63 @@
+name: Android Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: android
+            profile: preview-mobile
+            filename: nexora-tv-android.apk
+          - target: android-tv
+            profile: preview-tv
+            filename: nexora-tv-android-tv.apk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Build APK on EAS
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas-cli@latest build --platform android --profile "${{ matrix.profile }}" --non-interactive --wait --json > eas-result.json
+      - name: Download and sign artifact
+        run: |
+          URL=$(jq -r '.[0].artifacts.applicationArchiveUrl' eas-result.json)
+          test -n "$URL" && test "$URL" != "null"
+          curl --fail --location "$URL" --output "${{ matrix.filename }}"
+          sha256sum "${{ matrix.filename }}" > "${{ matrix.filename }}.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            ${{ matrix.filename }}
+            ${{ matrix.filename }}.sha256
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish APKs and SHA-256 files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Nexora TV $TAG" --generate-notes
+          gh release upload "$TAG" release-assets/*.apk release-assets/*.sha256 --repo "$GITHUB_REPOSITORY" --clobber

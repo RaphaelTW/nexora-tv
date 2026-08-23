@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -6,6 +6,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StreamPlayer } from '@/components/StreamPlayer';
 import { useApp } from '@/state/AppContext';
 import { colors, gradients, radius, spacing } from '@/theme/tokens';
+import { markChannelUnavailable } from '@/services/channelHealth';
+import { WebMetadata } from '@/components/WebMetadata';
 
 export default function PlayerScreen() {
   const { currentChannel, toggleFavorite, isFavorite } = useApp();
@@ -14,11 +16,44 @@ export default function PlayerScreen() {
     return <View style={styles.center}><Text style={styles.emptyTitle}>Nenhum canal selecionado</Text><Pressable onPress={() => router.replace('/' as never)}><Text style={styles.link}>Voltar ao início</Text></Pressable></View>;
   }
   const favorite = isFavorite(currentChannel.id);
+  const sources = useMemo(() => [currentChannel.url, ...(currentChannel.alternativeUrls || [])], [currentChannel]);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [retryToken, setRetryToken] = useState(0);
+  const [playerError, setPlayerError] = useState<string | null>(currentChannel.probeStatus === 'offline' ? 'A verificação rápida não conseguiu acessar esta fonte. Você ainda pode tentar reproduzi-la ou usar uma alternativa.' : null);
+  const activeChannel = { ...currentChannel, url: sources[sourceIndex] || currentChannel.url };
+
+  const retry = () => {
+    setPlayerError(null);
+    setRetryToken((value) => value + 1);
+  };
+
+  const tryAlternative = () => {
+    setPlayerError(null);
+    setSourceIndex((value) => Math.min(value + 1, sources.length - 1));
+    setRetryToken((value) => value + 1);
+  };
+
+  const hideUnavailable = async () => {
+    await markChannelUnavailable(activeChannel);
+    router.back();
+  };
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
+      <WebMetadata title={`${currentChannel.name} — Nexora TV`} description={`Assista ${currentChannel.name} ao vivo no Nexora TV.`} />
       <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.backButton}><Text style={styles.back}>← VOLTAR</Text></Pressable><Text style={styles.brand}>NEXORA PLAYER</Text></View>
-      <View style={[styles.playerFrame, Platform.OS === 'web' && { maxWidth: Math.min(1500, width - 36, Math.max(320, (height - 190) * 16 / 9)) }]}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={currentChannel} /></View></LinearGradient></View>
+      <View style={[styles.playerFrame, Platform.OS === 'web' && { maxWidth: Math.min(1500, width - 36, Math.max(320, (height - 190) * 16 / 9)) }]}><LinearGradient colors={gradients.brand} style={styles.playerBorder}><View style={styles.playerInner}><StreamPlayer channel={activeChannel} retryToken={retryToken} onPlaying={() => setPlayerError(null)} onError={setPlayerError} /></View></LinearGradient></View>
+      {playerError ? (
+        <View style={styles.offlineBox}>
+          <Text style={styles.offlineTitle}>Canal indisponível</Text>
+          <Text style={styles.offlineText}>{playerError}</Text>
+          <View style={styles.offlineActions}>
+            <Pressable focusable onPress={retry} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR NOVAMENTE</Text></Pressable>
+            {sourceIndex < sources.length - 1 ? <Pressable focusable onPress={tryAlternative} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR FONTE {sourceIndex + 2}</Text></Pressable> : null}
+            <Pressable focusable onPress={() => void hideUnavailable()} style={[styles.offlineButton, styles.reportButton]}><Text style={styles.reportText}>OCULTAR POR 6 HORAS</Text></Pressable>
+          </View>
+        </View>
+      ) : null}
       <View style={styles.info}>
         <View style={styles.left}><Text style={styles.live}>● AO VIVO</Text><Text style={styles.title}>{currentChannel.name}</Text><Text style={styles.meta}>{currentChannel.flag || '🌍'} {currentChannel.countryName || currentChannel.countryCode} · {currentChannel.group || 'Geral'}{currentChannel.quality ? ` · ${currentChannel.quality}` : ''}</Text></View>
         <Pressable onPress={() => void toggleFavorite(currentChannel)} style={styles.favorite}><Text style={styles.favoriteText}>{favorite ? '♥ FAVORITO' : '♡ FAVORITAR'}</Text></Pressable>
@@ -47,6 +82,14 @@ const styles = StyleSheet.create({
   favorite: { borderWidth: 1, borderColor: '#242424', borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12 },
   favoriteText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   note: { color: '#555', fontSize: 10, lineHeight: 16, maxWidth: 1000, alignSelf: 'center', textAlign: 'center' },
+  offlineBox: { width: '100%', maxWidth: 1500, alignSelf: 'center', borderWidth: 1, borderColor: '#4A2228', backgroundColor: '#15080B', borderRadius: radius.md, padding: spacing.md, marginTop: 14 },
+  offlineTitle: { color: colors.red, fontSize: 18, fontWeight: '900' },
+  offlineText: { color: colors.muted, marginTop: 6 },
+  offlineActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  offlineButton: { minHeight: 48, justifyContent: 'center', borderWidth: 1, borderColor: '#333', borderRadius: radius.pill, paddingHorizontal: 16 },
+  offlineButtonText: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  reportButton: { borderColor: '#4A2228' },
+  reportText: { color: colors.red, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   center: { flex: 1, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center', gap: 14 },
   emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '900' },
   link: { color: colors.green }

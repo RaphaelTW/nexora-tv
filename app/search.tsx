@@ -5,9 +5,11 @@ import { CountryCard } from '@/components/CountryCard';
 import { ChannelCard } from '@/components/ChannelCard';
 import { useApp } from '@/state/AppContext';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { router, useLocalSearchParams } from 'expo-router';
 
 export default function SearchScreen() {
-  const [query, setQuery] = useState('');
+  const params = useLocalSearchParams<{ q?: string }>();
+  const [query, setQuery] = useState(params.q || '');
   const { countries, favorites, history, pinnedCountries, togglePinnedCountry } = useApp();
   const q = query.trim().toLowerCase();
   const countryResults = useMemo(() => q ? countries.filter((c) => `${c.name} ${c.code}`.toLowerCase().includes(q)).slice(0, 12) : [], [countries, q]);
@@ -16,7 +18,7 @@ export default function SearchScreen() {
   return (
     <AppShell title="SEARCH THE SIGNAL">
       <Text style={styles.title}>Buscar</Text>
-      <TextInput autoFocus value={query} onChangeText={setQuery} placeholder="País, código ou canal já visto..." placeholderTextColor="#666" style={styles.input} />
+      <TextInput autoFocus value={query} onChangeText={(value) => { setQuery(value); router.setParams({ q: value || undefined }); }} placeholder="País, código ou canal já visto..." placeholderTextColor="#666" style={styles.input} />
       {!q ? <Text style={styles.tip}>A busca encontra todos os países do catálogo e canais que você já abriu ou favoritou. Dentro de cada país, a busca cobre a playlist inteira.</Text> : null}
       {!!countryResults.length && <><Text style={styles.section}>PAÍSES</Text><View style={styles.countryGrid}>{countryResults.map((country) => <View key={country.code} style={styles.countryCell}><CountryCard country={country} pinned={pinnedCountries.includes(country.code)} onTogglePin={() => void togglePinnedCountry(country.code)} /></View>)}</View></>}
       {!!channelResults.length && <><Text style={styles.section}>CANAIS RECENTES / FAVORITOS</Text><View style={styles.channels}>{channelResults.map((channel) => <ChannelCard key={`${channel.id}-${channel.url}`} channel={channel} />)}</View></>}

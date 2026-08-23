@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — 2026-08-22
+
+- Adiciona player resiliente, retry, fontes alternativas e ocultação temporária de canais indisponíveis.
+- Implementa download interno de atualizações, progresso, validação SHA-256 e instalação Android.
+- Adiciona PWA, tela offline, metadados web, atalhos de teclado e rotas amigáveis.
+- Virtualiza países, canais, favoritos e filtros para melhorar desempenho no mobile e Android TV.
+- Melhora foco por controle remoto, fullscreen, PiP, cache e diagnósticos locais sem dados pessoais.
+- Adiciona testes automatizados e workflow de release com APKs e hashes SHA-256.
+
 ## 1.0.2 — 2026-08-22
 
 - Corrige a responsividade do painel de país e bandeira em telas mobile.
