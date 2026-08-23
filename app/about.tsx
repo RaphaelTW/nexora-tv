@@ -7,7 +7,7 @@ import { colors, radius, spacing } from '@/theme/tokens';
 export default function AboutScreen() {
   return <AppShell title="ABOUT NEXORA">
     <Text style={styles.title}>Sobre</Text>
-    <Text style={styles.version}>Nexora TV v{Constants.expoConfig?.version || '1.1.0'}</Text>
+    <Text style={styles.version}>Nexora TV v{Constants.expoConfig?.version || '1.1.1'}</Text>
     <Text style={styles.copy}>TV global ao vivo por país para Android, Android TV e Web, alimentada pelo catálogo público IPTV-org.</Text>
     <Text style={styles.section}>NOVIDADES DA VERSÃO</Text>
     <View style={styles.card}>

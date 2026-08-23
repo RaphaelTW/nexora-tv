@@ -7,19 +7,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  build:
-    name: Build ${{ matrix.target }}
+  validate:
+    name: Validate version and source
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - target: android
-            profile: preview-mobile
-            filename: nexora-tv-android.apk
-          - target: android-tv
-            profile: preview-tv
-            filename: nexora-tv-android-tv.apk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,33 +22,100 @@ jobs:
           node-version: 22.13.1
           cache: npm
       - run: npm ci
+      - name: Match package version to tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          test "v$VERSION" = "$TAG"
       - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:web
+
+  check-release:
+    name: Check existing assets
+    runs-on: ubuntu-latest
+    outputs:
+      assets-exist: ${{ steps.assets.outputs.exists }}
+    steps:
+      - id: assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          MOBILE="nexora-tv-${TAG}-android.apk"
+          TV="nexora-tv-${TAG}-android-tv.apk"
+          NAMES=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' 2>/dev/null || true)
+          if grep -qx "$MOBILE" <<<"$NAMES" && grep -qx "$TV" <<<"$NAMES"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [validate, check-release]
+    if: needs.check-release.outputs.assets-exist != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: Android Mobile
+            profile: preview-mobile
+            suffix: android
+          - target: Android TV
+            profile: preview-tv
+            suffix: android-tv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.1
+          cache: npm
+      - run: npm ci
+      - name: Require EAS credentials
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN"
       - name: Build APK on EAS
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli@latest build --platform android --profile "${{ matrix.profile }}" --non-interactive --wait --json > eas-result.json
-      - name: Download and sign artifact
+      - name: Download and hash artifact
+        env:
+          SUFFIX: ${{ matrix.suffix }}
+          TAG: ${{ github.ref_name }}
         run: |
           URL=$(jq -r '.[0].artifacts.applicationArchiveUrl' eas-result.json)
           test -n "$URL" && test "$URL" != "null"
-          curl --fail --location "$URL" --output "${{ matrix.filename }}"
-          sha256sum "${{ matrix.filename }}" > "${{ matrix.filename }}.sha256"
+          FILENAME="nexora-tv-${TAG}-${SUFFIX}.apk"
+          curl --fail --location "$URL" --output "$FILENAME"
+          test -s "$FILENAME"
+          sha256sum "$FILENAME" > "$FILENAME.sha256"
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}
-          path: |
-            ${{ matrix.filename }}
-            ${{ matrix.filename }}.sha256
+          name: ${{ matrix.suffix }}
+          if-no-files-found: error
+          retention-days: 14
+          path: nexora-tv-*.apk*
 
   publish:
     name: Publish GitHub Release
-    needs: build
+    needs: [validate, check-release, build]
+    if: always() && needs.validate.result == 'success' && needs.check-release.outputs.assets-exist != 'true' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: release-assets
           merge-multiple: true
+      - name: Verify complete release set
+        working-directory: release-assets
+        run: |
+          test "$(find . -maxdepth 1 -name '*.apk' | wc -l)" -eq 2
+          test "$(find . -maxdepth 1 -name '*.sha256' | wc -l)" -eq 2
+          sha256sum --check *.sha256
       - name: Publish APKs and SHA-256 files
         env:
           GH_TOKEN: ${{ github.token }}

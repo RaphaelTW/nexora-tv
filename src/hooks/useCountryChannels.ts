@@ -27,6 +27,11 @@ export function useCountryChannels(code: string) {
     }
   }, [code]);
 
+  const reapplyHiddenChannels = useCallback(async () => {
+    const cached = await readCache<Channel[]>(`country:${code.toUpperCase()}`, 6 * 60 * 60 * 1000);
+    if (cached?.data) setChannels(await removeUnavailableChannels(cached.data));
+  }, [code]);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -36,7 +41,7 @@ export function useCountryChannels(code: string) {
       const cached = await readCache<Channel[]>(`country:${code.toUpperCase()}`, 6 * 60 * 60 * 1000);
       if (!active) return;
       if (cached?.data) {
-        setChannels(cached.data);
+        setChannels(await removeUnavailableChannels(cached.data));
         setLoading(false);
       }
       if (!cached?.data) await refresh(true);
@@ -45,5 +50,5 @@ export function useCountryChannels(code: string) {
     return () => { active = false; };
   }, [code, refresh]);
 
-  return { channels, loading, refreshing, error, refresh: () => refresh(true) };
+  return { channels, loading, refreshing, error, refresh: () => refresh(true), reapplyHiddenChannels };
 }

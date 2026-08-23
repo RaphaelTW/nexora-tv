@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — 2026-08-23
+
+- Corrige a ocultação de canais também ao restaurar playlists do cache.
+- Valida APKs com SHA-256 incremental sem carregar o arquivo inteiro na memória.
+- Adiciona fila persistida, canal anterior/próximo e reconexão automática no player.
+- Implementa busca global pelo índice oficial IPTV-org e pesquisa por voz.
+- Padroniza editores com EditorConfig e fortalece o workflow de releases.
+
 ## 1.1.0 — 2026-08-22
 
 - Adiciona player resiliente, retry, fontes alternativas e ocultação temporária de canais indisponíveis.

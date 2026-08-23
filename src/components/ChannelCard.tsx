@@ -10,13 +10,13 @@ import * as Haptics from 'expo-haptics';
 import { Platform } from 'react-native';
 import { probeStream } from '@/services/streamProbe';
 
-export function ChannelCard({ channel }: { channel: Channel }) {
+export function ChannelCard({ channel, queue }: { channel: Channel; queue?: Channel[] }) {
   const { isFavorite, toggleFavorite, setCurrentChannel, recordWatch } = useApp();
   const favorite = isFavorite(channel.id);
 
   const play = async () => {
     const probeStatus = await probeStream(channel.url);
-    await setCurrentChannel({ ...channel, probeStatus });
+    await setCurrentChannel({ ...channel, probeStatus }, queue);
     await recordWatch(channel);
     router.push(`/player/${encodeURIComponent(channel.id)}` as never);
   };

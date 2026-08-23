@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Channel } from '@/types/iptv';
+import { filterUnavailableChannels } from './channelUtils';
 
 const KEY = 'nexora:unavailable-channels';
 const HIDDEN_FOR_MS = 6 * 60 * 60 * 1000;
@@ -25,5 +26,5 @@ export async function removeUnavailableChannels(channels: Channel[]) {
   if (Object.keys(active).length !== Object.keys(unavailable).length) {
     await AsyncStorage.setItem(KEY, JSON.stringify(active));
   }
-  return channels.filter((channel) => !active[`${channel.id}|${channel.url}`]);
+  return filterUnavailableChannels(channels, active, now, HIDDEN_FOR_MS);
 }

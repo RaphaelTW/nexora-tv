@@ -13,3 +13,10 @@ export function toggleFavoriteInList(favorites: Channel[], channel: Channel, lim
     ? favorites.filter((item) => item.id !== channel.id)
     : [channel, ...favorites].slice(0, limit);
 }
+
+export function filterUnavailableChannels(channels: Channel[], unavailable: Record<string, number>, now = Date.now(), hiddenForMs = 6 * 60 * 60 * 1000) {
+  return channels.filter((channel) => {
+    const hiddenAt = unavailable[`${channel.id}|${channel.url}`];
+    return !hiddenAt || now - hiddenAt >= hiddenForMs;
+  });
+}

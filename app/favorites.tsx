@@ -12,7 +12,7 @@ export default function FavoritesScreen() {
       <FlatList
         data={favorites}
         keyExtractor={(channel) => `${channel.id}-${channel.url}`}
-        renderItem={({ item }) => <View style={styles.item}><ChannelCard channel={item} /></View>}
+        renderItem={({ item }) => <View style={styles.item}><ChannelCard channel={item} queue={favorites} /></View>}
         ListHeaderComponent={<><Text style={styles.title}>Favoritos</Text><Text style={styles.sub}>Seus canais ficam salvos somente neste dispositivo.</Text></>}
         ListEmptyComponent={<Text style={styles.empty}>Você ainda não favoritou nenhum canal.</Text>}
         contentContainerStyle={styles.list}

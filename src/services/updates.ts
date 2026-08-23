@@ -1,22 +1,69 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
-import { Alert, Linking, Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import { isNewerVersion } from './version';
+import { sha256File } from './apkIntegrity';
 
 const LATEST_RELEASE = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases/latest';
+const RELEASES_LIST = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases?per_page=5';
 const DISMISSED_KEY = 'nexora:dismissed-update';
 type Asset = { name: string; browser_download_url: string; digest?: string; size?: number };
 type Release = { tag_name: string; name?: string; body?: string; html_url: string; assets?: Asset[] };
-export type UpdateState = { phase: 'idle' | 'downloading' | 'verifying' | 'ready' | 'error'; progress: number; message?: string };
+export type UpdateState = {
+  phase: 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'ready' | 'info' | 'error';
+  progress: number;
+  message?: string;
+  version?: string;
+  title?: string;
+  notes?: string;
+  platform?: string;
+  assetName?: string;
+};
 
 let state: UpdateState = { phase: 'idle', progress: 0 };
+let pendingRelease: Release | null = null;
+let pendingAsset: Asset | undefined;
 const listeners = new Set<(next: UpdateState) => void>();
 function publish(next: UpdateState) { state = next; listeners.forEach((listener) => listener(next)); }
 export function subscribeToUpdate(listener: (next: UpdateState) => void) { listener(state); listeners.add(listener); return () => { listeners.delete(listener); }; }
 export function dismissUpdateProgress() { publish({ phase: 'idle', progress: 0 }); }
+export async function postponeAvailableUpdate() {
+  if (pendingRelease) await AsyncStorage.setItem(DISMISSED_KEY, pendingRelease.tag_name);
+  pendingRelease = null; pendingAsset = undefined; dismissUpdateProgress();
+}
+export async function installAvailableUpdate() {
+  const release = pendingRelease; const asset = pendingAsset;
+  if (!release) return;
+  if (Platform.OS === 'android' && asset) {
+    await downloadAndInstall(asset).catch((error) => publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' }));
+    return;
+  }
+  dismissUpdateProgress();
+  await Linking.openURL(release.html_url);
+}
+
+async function fetchLatestRelease(): Promise<Release> {
+  const cacheBuster = `nexora=${Date.now()}`;
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'Cache-Control': 'no-cache, no-store',
+    Pragma: 'no-cache',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  const attempts = [`${LATEST_RELEASE}?${cacheBuster}`, `${RELEASES_LIST}&${cacheBuster}`];
+  let lastStatus = 0;
+  for (const url of attempts) {
+    const response = await fetch(url, { headers, cache: 'no-store' });
+    lastStatus = response.status;
+    if (!response.ok) continue;
+    const payload = await response.json() as Release | Release[];
+    const release = Array.isArray(payload) ? payload.find((item) => item.tag_name && item.assets) : payload;
+    if (release?.tag_name) return release;
+  }
+  throw new Error(lastStatus === 404 ? 'Release não encontrada. Confirme se o repositório e a release estão públicos.' : `GitHub respondeu ${lastStatus || 'sem conexão'}`);
+}
 
 function selectedAsset(release: Release) {
   const isTV = Boolean((Platform as any).isTV);
@@ -25,8 +72,6 @@ function selectedAsset(release: Release) {
     return name.endsWith('.apk') && (isTV ? name.includes('tv') : !name.includes('tv'));
   });
 }
-function toHex(buffer: ArrayBuffer) { return Array.from(new Uint8Array(buffer)).map((byte) => byte.toString(16).padStart(2, '0')).join(''); }
-
 async function downloadAndInstall(asset: Asset) {
   if (!FileSystem.cacheDirectory) throw new Error('Armazenamento temporário indisponível.');
   const destination = `${FileSystem.cacheDirectory}${asset.name}`;
@@ -39,10 +84,8 @@ async function downloadAndInstall(asset: Asset) {
   const info = await FileSystem.getInfoAsync(result.uri);
   if (!info.exists || (asset.size && info.size !== asset.size)) throw new Error('O tamanho do APK não corresponde à release.');
   if (asset.digest?.startsWith('sha256:')) {
-    publish({ phase: 'verifying', progress: 1, message: 'Validando assinatura SHA-256…' });
-    const { File } = await import('expo-file-system');
-    const bytes = await new File(result.uri).arrayBuffer();
-    const actual = toHex(await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes));
+    publish({ phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
+    const actual = await sha256File(result.uri, (progress) => publish({ phase: 'verifying', progress, message: 'Validando assinatura SHA-256…' }));
     if (actual.toLowerCase() !== asset.digest.slice(7).toLowerCase()) throw new Error('A assinatura SHA-256 do APK é inválida.');
   }
   publish({ phase: 'ready', progress: 1, message: 'Download verificado. Abrindo o instalador…' });
@@ -51,25 +94,24 @@ async function downloadAndInstall(asset: Asset) {
 }
 
 export async function checkForUpdate({ showUpToDate = false } = {}) {
+  if (showUpToDate) publish({ phase: 'checking', progress: 0, message: 'Consultando a release mais recente…' });
   try {
-    const response = await fetch(LATEST_RELEASE, { headers: { Accept: 'application/vnd.github+json' } });
-    if (!response.ok) throw new Error(`GitHub respondeu ${response.status}`);
-    const release = await response.json() as Release;
+    const release = await fetchLatestRelease();
     const current = Constants.expoConfig?.version || '0.0.0';
     if (!isNewerVersion(release.tag_name, current)) {
-      if (showUpToDate) Alert.alert('Nexora TV', `Você já usa a versão mais recente (${current}).`);
+      if (showUpToDate) publish({ phase: 'info', progress: 1, title: 'Nexora TV atualizado', message: `Você já usa a versão mais recente (v${current}).` });
       return;
     }
     if (!showUpToDate && await AsyncStorage.getItem(DISMISSED_KEY) === release.tag_name) return;
     const isTV = Boolean((Platform as any).isTV);
     const platformName = isTV ? 'Android TV' : Platform.OS === 'web' ? 'Web' : 'Android Mobile';
     const asset = selectedAsset(release);
-    const notes = (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 700);
-    Alert.alert(`Nova versão para ${platformName}`, `${release.name || release.tag_name}\n\n${notes}`, [
-      { text: 'Depois', style: 'cancel', onPress: () => void AsyncStorage.setItem(DISMISSED_KEY, release.tag_name) },
-      { text: Platform.OS === 'android' && asset ? 'Baixar e instalar' : 'Ver release', onPress: () => void (Platform.OS === 'android' && asset ? downloadAndInstall(asset).catch((error) => publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' })) : Linking.openURL(release.html_url)) }
-    ]);
+    pendingRelease = release; pendingAsset = asset;
+    publish({
+      phase: 'available', progress: 0, version: release.tag_name, title: release.name || `Nexora TV ${release.tag_name}`,
+      notes: (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 1200), platform: platformName, assetName: asset?.name
+    });
   } catch (error) {
-    if (showUpToDate) Alert.alert('Não foi possível verificar', error instanceof Error ? error.message : 'Tente novamente mais tarde.');
+    if (showUpToDate) publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Tente novamente mais tarde.' });
   }
 }

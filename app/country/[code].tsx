@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { AppShell } from '@/components/AppShell';
 import { ChannelCard } from '@/components/ChannelCard';
 import { RGBLoader } from '@/components/RGBLoader';
@@ -16,14 +16,17 @@ export default function CountryScreen() {
   const { width } = useWindowDimensions();
   const { countries, togglePinnedCountry, pinnedCountries } = useApp();
   const country = countries.find((item) => item.code === code);
-  const { channels, loading, refreshing, error, refresh } = useCountryChannels(code);
+  const { channels, loading, refreshing, error, refresh, reapplyHiddenChannels } = useCountryChannels(code);
   const [query, setQuery] = useState(params.q || '');
   const [group, setGroup] = useState(params.group || 'Todos');
   const [showAllGroups, setShowAllGroups] = useState(false);
   const groups = useMemo(() => ['Todos', ...Array.from(new Set(channels.map((item) => item.group || 'Geral'))).sort()].slice(0, 30), [channels]);
   const filtered = useMemo(() => filterChannels(channels, query, group), [channels, group, query]);
+  const playableQueue = useMemo(() => filtered.map((channel) => ({ ...channel, countryName: country?.name, flag: country?.flag })), [filtered, country?.name, country?.flag]);
   const cols = width >= 1250 ? 3 : width >= 760 ? 2 : 1;
   const compact = width < 600;
+
+  useFocusEffect(useCallback(() => { void reapplyHiddenChannels(); }, [reapplyHiddenChannels]));
 
   const header = (
     <>
@@ -70,7 +73,7 @@ export default function CountryScreen() {
         numColumns={cols}
         keyExtractor={(channel) => `${channel.id}-${channel.url}`}
         renderItem={({ item }) => (
-          <View style={styles.gridItem}><ChannelCard channel={{ ...item, countryName: country?.name, flag: country?.flag }} /></View>
+          <View style={styles.gridItem}><ChannelCard channel={{ ...item, countryName: country?.name, flag: country?.flag }} queue={playableQueue} /></View>
         )}
         ListHeaderComponent={header}
         ListEmptyComponent={!loading && !error ? <Text style={styles.empty}>Nenhum canal encontrado com esse filtro.</Text> : null}

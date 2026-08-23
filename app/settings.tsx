@@ -17,7 +17,7 @@ export default function SettingsScreen() {
       <Setting title="Países disponíveis" value={String(countries.length)} />
       <Setting title="Favoritos locais" value={String(favorites.length)} />
       <Setting title="Histórico local" value={String(history.length)} />
-      <Setting title="Versão atual" value={`v${Constants.expoConfig?.version || '1.1.0'}`} />
+      <Setting title="Versão atual" value={`v${Constants.expoConfig?.version || '1.1.1'}`} />
       <View style={styles.row}>
         <Text style={styles.rowTitle}>Desenvolvido por</Text>
         <Pressable onPress={() => void Linking.openURL('https://github.com/RaphaelTW')}>
