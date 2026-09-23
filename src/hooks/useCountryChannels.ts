@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchCountryChannels } from '@/services/iptv';
+import { refreshProviderCatalog } from '@/services/providerCatalog';
 import { readCache, writeCache } from '@/services/cache';
 import type { Channel } from '@/types/iptv';
 import { removeUnavailableChannels } from '@/services/channelHealth';
@@ -15,7 +15,7 @@ export function useCountryChannels(code: string) {
     if (foreground) setRefreshing(true);
     setError(null);
     try {
-      const latest = await fetchCountryChannels(code);
+      const latest = await refreshProviderCatalog(code, foreground);
       const available = await removeUnavailableChannels(latest);
       setChannels(available);
       await writeCache(`country:${code.toUpperCase()}`, latest);
@@ -44,7 +44,7 @@ export function useCountryChannels(code: string) {
         setChannels(await removeUnavailableChannels(cached.data));
         setLoading(false);
       }
-      if (!cached?.data) await refresh(true);
+      await refresh(!cached?.data);
       await recordPerformance(`country:${code}`, startedAt);
     })();
     return () => { active = false; };

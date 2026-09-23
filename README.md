@@ -263,3 +263,22 @@ O GitHub Actions em `.github/workflows/ci.yml` executa essas duas etapas em push
   <strong>NEXORA TV</strong><br/>
   <sub>OLED BLACK • GLOBAL SIGNAL • MOBILE + TV + WEB</sub>
 </p>
+
+
+### Fontes alternativas gratuitas
+
+### Downloads da versão 1.1.4
+
+- [APK para celular Android](https://github.com/RaphaelTW/nexora-tv/releases/download/v1.1.4/nexora-tv-v1.1.4-android.apk)
+- [APK para Android TV](https://github.com/RaphaelTW/nexora-tv/releases/download/v1.1.4/nexora-tv-v1.1.4-android-tv.apk)
+- [Release e verificações SHA-256](https://github.com/RaphaelTW/nexora-tv/releases/tag/v1.1.4)
+
+O player mantém o vídeo e os controles juntos no celular. As opções de fonte aparecem em uma faixa horizontal. Quando uma fonte falha ou não envia vídeo por 20 segundos, o app tenta os outros links sem repetir os que já falharam naquela tentativa.
+
+Os catálogos ficam salvos em AsyncStorage no aparelho e são consultados novamente a cada 15 minutos de uso do player, ao voltar ao aplicativo e ao abrir um canal com dados antigos. Uma falha de rede mantém o último catálogo salvo. A última fonte que reproduziu vídeo é lembrada por 24 horas. Isso atualiza os links sem precisar baixar outro APK.
+
+Além de IPTV-org e Free-TV, [TDTChannels](https://github.com/LaQuay/TDTChannels) fornece alternativas para o catálogo da Espanha quando o nome tem correspondência única. A disponibilidade depende da região e da emissora; nem todos os canais terão três fontes.
+
+Os canais combinam as listas públicas [IPTV-org](https://github.com/iptv-org/iptv) e [Free-TV](https://github.com/Free-TV/IPTV). Fontes do mesmo país e com o mesmo `tvg-id` são agrupadas, sem duplicar URLs. O player permite selecionar a fonte e tenta a próxima automaticamente quando recebe um erro; ao esgotar as alternativas, oferece nova tentativa. Links com credenciais explícitas e páginas que não são streams diretos são descartados. Não é necessário cadastrar conta no aplicativo.
+
+Cada fonte mantém seus próprios cabeçalhos. Falhas em uma lista não impedem carregar a outra, e o catálogo em cache é atualizado ao abrir o país. Nem todo canal possui alternativas; disponibilidade, restrições geográficas e compatibilidade do navegador dependem da transmissão original.

@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Linking, Platform } from 'react-native';
+import { selectApk } from './playback';
 import { isNewerVersion } from './version';
 import { sha256File } from './apkIntegrity';
 
@@ -77,10 +78,7 @@ async function fetchLatestRelease(): Promise<Release> {
 
 function selectedAsset(release: Release) {
   const isTV = Boolean((Platform as any).isTV);
-  return (release.assets || []).find((asset) => {
-    const name = asset.name.toLowerCase();
-    return name.endsWith('.apk') && (isTV ? name.includes('tv') : !name.includes('tv'));
-  });
+  return selectApk(release.assets || [], isTV);
 }
 function showDownloadError(error: unknown) {
   publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' });

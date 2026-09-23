@@ -5,6 +5,8 @@ export type Country = {
   flag: string;
 };
 
+export type ChannelSource = { url: string; provider: string; referrer?: string; userAgent?: string };
+
 export type Channel = {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ export type Channel = {
   quality?: string;
   url: string;
   alternativeUrls?: string[];
+  sources?: ChannelSource[];
   probeStatus?: 'online' | 'offline' | 'unknown';
   referrer?: string;
   userAgent?: string;

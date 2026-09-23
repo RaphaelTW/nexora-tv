@@ -1,3 +1,4 @@
+import { isPublicStream } from './iptv';
 import { readCache, writeCache } from './cache';
 import type { Channel } from '@/types/iptv';
 
@@ -37,12 +38,13 @@ async function buildIndex() {
   logos.forEach((logo) => { if (logo.in_use || !logoMap.has(logo.channel)) logoMap.set(logo.channel, logo.url); });
   const result = new Map<string, Channel>();
   for (const stream of streams) {
-    if (!stream.channel) continue;
+    if (!stream.channel || !isPublicStream(stream.url)) continue;
     const meta = metadata.get(stream.channel);
     if (!meta) continue;
     const existing = result.get(stream.channel);
     if (existing) {
       if (stream.url !== existing.url && !(existing.alternativeUrls || []).includes(stream.url)) existing.alternativeUrls = [...(existing.alternativeUrls || []), stream.url];
+      if (!existing.sources?.some(source => source.url === stream.url)) existing.sources = [...(existing.sources || []), { url: stream.url, provider: 'IPTV-org', referrer: stream.referrer || undefined, userAgent: stream.user_agent || undefined }];
       continue;
     }
     result.set(stream.channel, {
@@ -52,6 +54,7 @@ async function buildIndex() {
       group: meta.categories?.join(', ') || 'Geral',
       logo: logoMap.get(stream.channel),
       quality: stream.quality || undefined,
+      sources: [{ url: stream.url, provider: 'IPTV-org', referrer: stream.referrer || undefined, userAgent: stream.user_agent || undefined }],
       url: stream.url,
       referrer: stream.referrer || undefined,
       userAgent: stream.user_agent || undefined

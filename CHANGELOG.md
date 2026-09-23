@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.4 — 2026-09-23
+
+- Corrige espaços vazios no player mobile com altura explícita de vídeo e fontes em uma faixa horizontal.
+- Alterna fontes ao detectar erro ou 20 segundos sem vídeo, sem repetir indefinidamente links indisponíveis.
+- Atualiza e salva os catálogos no aparelho a cada 15 minutos de uso do player e ao retornar ao app.
+- Lembra a última fonte que reproduziu vídeo e consulta links atualizados quando as alternativas falham.
+- Adiciona TDTChannels por correspondência única de canal, junto de IPTV-org e Free-TV.
+- Corrige a seleção do APK de celular e Android TV no atualizador interno.
+
+## 1.1.3 - 2026-09-15
+
+- Integra Free-TV ao catalogo de fontes publicas.
+- Permite selecionar fontes e alterna automaticamente ao ocorrer erro.
+- Preserva os cabecalhos de cada fonte e atualiza o catalogo em cache.
+
 ## 1.1.2 — 2026-08-23
 
 - Baixa e valida novas atualizações automaticamente dentro do aplicativo no Android.

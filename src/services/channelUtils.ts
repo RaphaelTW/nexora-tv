@@ -1,3 +1,4 @@
+import { getChannelSources } from './iptv';
 import type { Channel } from '@/types/iptv';
 
 export function filterChannels(channels: Channel[], query: string, group = 'Todos') {
@@ -15,8 +16,13 @@ export function toggleFavoriteInList(favorites: Channel[], channel: Channel, lim
 }
 
 export function filterUnavailableChannels(channels: Channel[], unavailable: Record<string, number>, now = Date.now(), hiddenForMs = 6 * 60 * 60 * 1000) {
-  return channels.filter((channel) => {
-    const hiddenAt = unavailable[`${channel.id}|${channel.url}`];
-    return !hiddenAt || now - hiddenAt >= hiddenForMs;
+  return channels.flatMap((channel) => {
+    const available = getChannelSources(channel).filter(source => {
+      const hiddenAt = unavailable[`${channel.id}|${source.url}`];
+      return !hiddenAt || now - hiddenAt >= hiddenForMs;
+    });
+    if (!available.length) return [];
+    if (available.length === getChannelSources(channel).length) return [channel];
+    return [{ ...channel, ...available[0], sources: available, alternativeUrls: available.slice(1).map(source => source.url) }];
   });
 }
