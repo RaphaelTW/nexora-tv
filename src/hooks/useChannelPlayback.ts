@@ -4,6 +4,8 @@ import type { Channel } from '@/types/iptv';
 import { getChannelSources } from '@/services/iptv';
 import { nextAvailableSource } from '@/services/playback';
 import { preferredSource, PROVIDER_REFRESH_MS, refreshChannelSources, rememberWorkingSource } from '@/services/providerCatalog';
+import { diagnosePlaybackFailure, type PlaybackFailure } from '@/services/playbackDiagnostics';
+import { markChannelSourceUnavailable } from '@/services/channelHealth';
 
 export function useChannelPlayback(initial: Channel) {
   const [channel, setChannel] = useState(initial);
@@ -12,6 +14,7 @@ export function useChannelPlayback(initial: Channel) {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('Conectando…');
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [failures, setFailures] = useState<PlaybackFailure[]>([]);
   const failed = useRef(new Set<string>());
   const recovering = useRef(false);
   const refreshedAfterFailure = useRef(false);
@@ -57,6 +60,10 @@ export function useChannelPlayback(initial: Channel) {
     const requestGeneration = generation.current;
     failed.current.add(url);
     let latest = current.current.channel;
+    const source = getChannelSources(latest).find(item => item.url === url) || { url, provider: 'Fonte desconhecida' };
+    const failure = diagnosePlaybackFailure(source, message);
+    setFailures(items => items.some(item => item.source.url === url) ? items : [...items, failure]);
+    if (failure.kind === 'forbidden') void markChannelSourceUnavailable(latest, url).catch(() => {});
     let next = nextAvailableSource(getChannelSources(latest), failed.current);
     if (!next && !refreshedAfterFailure.current) {
       refreshedAfterFailure.current = true;
@@ -83,9 +90,9 @@ export function useChannelPlayback(initial: Channel) {
   const activeSource = sources.find(source => source.url === url) || getChannelSources(initial).find(source => source.url === url);
   const activeChannel = { ...channel, url, referrer: activeSource?.referrer, userAgent: activeSource?.userAgent };
   return {
-    channel, sources, activeChannel, retryToken, error, status, updatedAt,
+    channel, sources, activeChannel, retryToken, error, status, updatedAt, failures,
     selectSource: (nextUrl: string) => { failed.current.delete(nextUrl); select(nextUrl); },
-    retry: () => { failed.current.clear(); refreshedAfterFailure.current = false; select(sources[0]?.url || initial.url); },
+    retry: () => { failed.current.clear(); refreshedAfterFailure.current = false; setFailures([]); select(sources[0]?.url || initial.url); },
     handlePlaying, handleError
   };
 }

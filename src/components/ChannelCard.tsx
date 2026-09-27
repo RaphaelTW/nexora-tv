@@ -16,7 +16,7 @@ export function ChannelCard({ channel, queue }: { channel: Channel; queue?: Chan
 
   const play = async () => {
     const probeStatus = await probeStream(channel.url);
-    await setCurrentChannel({ ...channel, probeStatus }, queue);
+    await setCurrentChannel({ ...channel, probeStatus: probeStatus === 'forbidden' ? 'offline' : probeStatus }, queue);
     await recordWatch(channel);
     router.push(`/player/${encodeURIComponent(channel.id)}` as never);
   };

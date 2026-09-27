@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { refreshProviderCatalog } from '@/services/providerCatalog';
 import { readCache, writeCache } from '@/services/cache';
 import type { Channel } from '@/types/iptv';
-import { removeUnavailableChannels } from '@/services/channelHealth';
+import { checkCatalogHealth, removeUnavailableChannels } from '@/services/channelHealth';
 import { recordPerformance } from '@/services/performance';
 
 export function useCountryChannels(code: string) {
@@ -18,6 +18,7 @@ export function useCountryChannels(code: string) {
       const latest = await refreshProviderCatalog(code, foreground);
       const available = await removeUnavailableChannels(latest);
       setChannels(available);
+      void checkCatalogHealth(available).then((checked) => setChannels(checked)).catch(() => {});
       await writeCache(`country:${code.toUpperCase()}`, latest);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível carregar a playlist');
@@ -41,7 +42,9 @@ export function useCountryChannels(code: string) {
       const cached = await readCache<Channel[]>(`country:${code.toUpperCase()}`, 6 * 60 * 60 * 1000);
       if (!active) return;
       if (cached?.data) {
-        setChannels(await removeUnavailableChannels(cached.data));
+        const available = await removeUnavailableChannels(cached.data);
+        setChannels(available);
+        void checkCatalogHealth(available).then((checked) => { if (active) setChannels(checked); }).catch(() => {});
         setLoading(false);
       }
       await refresh(!cached?.data);

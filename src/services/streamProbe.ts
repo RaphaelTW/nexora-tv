@@ -1,9 +1,10 @@
-export async function probeStream(url: string, timeoutMs = 1500): Promise<'online' | 'offline' | 'unknown'> {
+export async function probeStream(url: string, timeoutMs = 1500): Promise<'online' | 'forbidden' | 'offline' | 'unknown'> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { method: 'HEAD', signal: controller.signal, headers: { Accept: 'application/vnd.apple.mpegurl,video/*,*/*' } });
     if (response.ok || response.status === 405) return 'online';
+    if (response.status === 403) return 'forbidden';
     return response.status >= 400 ? 'offline' : 'unknown';
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return 'unknown';

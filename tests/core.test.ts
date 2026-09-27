@@ -6,6 +6,7 @@ import { isNewerVersion } from '../src/services/version';
 import type { Channel } from '../src/types/iptv';
 import { sha256Chunks } from '../src/services/sha256';
 import { nextAvailableSource, playerDimensions, selectApk } from '../src/services/playback';
+import { diagnosePlaybackFailure } from '../src/services/playbackDiagnostics';
 import { matchAdditionalSources, fetchCountryChannels } from '../src/services/iptv';
 
 test('player mobile calcula altura proporcional sem grandes espacos', () => {
@@ -19,6 +20,13 @@ test('troca de fonte nao repete URLs que falharam e encerra ao esgotar', () => {
   const sources = [{ url: 'a', provider: 'one' }, { url: 'b', provider: 'two' }];
   assert.equal(nextAvailableSource(sources, new Set(['a']))?.url, 'b');
   assert.equal(nextAvailableSource(sources, new Set(['a', 'b'])), undefined);
+});
+
+test('diagnostico identifica bloqueio, geobloqueio e CORS por fonte', () => {
+  const source = { url: 'https://one.test/live.m3u8', provider: 'Teste' };
+  assert.equal(diagnosePlaybackFailure(source, 'Source error response code: 403').kind, 'forbidden');
+  assert.equal(diagnosePlaybackFailure(source, 'Geographic region blocked').kind, 'geo-blocked');
+  assert.equal(diagnosePlaybackFailure(source, 'CORS request failed').kind, 'cors');
 });
 
 test('atualizador diferencia android de android-tv apesar do nome nexora-tv', () => {

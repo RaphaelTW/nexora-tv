@@ -1,6 +1,6 @@
 {
   "name": "nexora-tv",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "description": "TV global ao vivo por país para Android, Android TV e Web, alimentada pelo IPTV-org.",
   "main": "expo-router/entry",
@@ -17,6 +17,8 @@
     "build:apk:tv": "npx --yes eas-cli@latest build --platform android --profile preview-tv",
     "build:aab:mobile": "npx --yes eas-cli@latest build --platform android --profile production-mobile",
     "build:aab:tv": "npx --yes eas-cli@latest build --platform android --profile production-tv",
+    "release:publish": "powershell -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
+    "maintenance:check": "npx expo install --check && npm audit --omit=dev",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts"
   },

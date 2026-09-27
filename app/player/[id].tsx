@@ -29,7 +29,7 @@ function ActivePlayer() {
   const playerWidth = dimensions.width;
   const favorite = isFavorite(currentChannel.id);
   const playback = useChannelPlayback(currentChannel);
-  const { activeChannel, sources, retryToken, error: playerError, retry, handlePlaying, handleError } = playback;
+  const { activeChannel, sources, retryToken, error: playerError, failures, retry, handlePlaying, handleError } = playback;
   const sourceIndex = sources.findIndex(source => source.url === activeChannel.url);
   const selectSource = (index: number) => playback.selectSource(sources[index].url);
   const tryAlternative = () => selectSource((sourceIndex + 1) % sources.length);
@@ -63,8 +63,12 @@ function ActivePlayer() {
         <View style={styles.offlineBox}>
           <Text style={styles.offlineTitle}>Canal indisponível</Text>
           <Text style={styles.offlineText}>{playerError}</Text>
+          {failures.map((failure) => <View key={failure.source.url} style={styles.failureRow}>
+            <Text style={styles.failureProvider}>{failure.source.provider}</Text>
+            <View style={styles.failureCopy}><Text style={styles.failureTitle}>{failure.title}</Text><Text style={styles.failureDetail}>{failure.detail}</Text></View>
+          </View>)}
           <View style={styles.offlineActions}>
-            <Pressable focusable onPress={retry} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR NOVAMENTE</Text></Pressable>
+            <Pressable focusable onPress={retry} style={styles.offlineButton}><Text style={styles.offlineButtonText}>REINICIAR TODAS AS FONTES</Text></Pressable>
             {sourceIndex < sources.length - 1 ? <Pressable focusable onPress={tryAlternative} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR FONTE {sourceIndex + 2}</Text></Pressable> : null}
             <Pressable focusable onPress={() => void hideUnavailable()} style={[styles.offlineButton, styles.reportButton]}><Text style={styles.reportText}>OCULTAR POR 6 HORAS</Text></Pressable>
           </View>
@@ -103,6 +107,11 @@ const styles = StyleSheet.create({
   offlineBox: { width: '100%', alignSelf: 'center', borderWidth: 1, borderColor: '#4A2228', backgroundColor: '#15080B', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm },
   offlineTitle: { color: colors.red, fontSize: 18, fontWeight: '900' },
   offlineText: { color: colors.muted, marginTop: 6 },
+  failureRow: { flexDirection: 'row', gap: 10, marginTop: 12, borderLeftWidth: 2, borderLeftColor: colors.red, paddingLeft: 10 },
+  failureProvider: { color: colors.green, fontSize: 10, fontWeight: '900', maxWidth: 110 },
+  failureCopy: { flex: 1 },
+  failureTitle: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  failureDetail: { color: colors.muted, fontSize: 11, marginTop: 2, lineHeight: 16 },
   offlineActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   offlineButton: { minHeight: 48, justifyContent: 'center', borderWidth: 1, borderColor: '#333', borderRadius: radius.pill, paddingHorizontal: 16 },
   offlineButtonText: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1 },

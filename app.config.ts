@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext) => ({
   ...config,
   name: 'Nexora TV',
   slug: 'nexora-tv',
-  version: '1.1.5',
+  version: '1.1.6',
   orientation: 'default',
   userInterfaceStyle: 'dark',
   scheme: 'nexora',
@@ -24,7 +24,7 @@ export default ({ config }: ConfigContext) => ({
   },
   android: {
     package: isTV ? 'com.raphaeltw.nexoratv.tv' : 'com.raphaeltw.nexoratv',
-    versionCode: 9,
+    versionCode: 10,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#000000'

@@ -10,7 +10,7 @@ import { sha256File } from './apkIntegrity';
 const LATEST_RELEASE = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases/latest';
 const RELEASES_LIST = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases?per_page=5';
 const DISMISSED_KEY = 'nexora:dismissed-update';
-type Asset = { name: string; browser_download_url: string; digest?: string; size?: number };
+type Asset = { name: string; label?: string; browser_download_url: string; digest?: string; size?: number };
 type Release = { tag_name: string; name?: string; body?: string; html_url: string; assets?: Asset[] };
 export type UpdateState = {
   phase: 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'ready' | 'info' | 'error';
@@ -21,6 +21,7 @@ export type UpdateState = {
   notes?: string;
   platform?: string;
   assetName?: string;
+  assetDigest?: string;
 };
 
 let state: UpdateState = { phase: 'idle', progress: 0 };
@@ -78,7 +79,7 @@ async function fetchLatestRelease(): Promise<Release> {
 
 function selectedAsset(release: Release) {
   const isTV = Boolean((Platform as any).isTV);
-  return selectApk(release.assets || [], isTV);
+  return selectApk((release.assets || []).map(asset => ({ ...asset, name: asset.label || asset.name })), isTV);
 }
 function showDownloadError(error: unknown) {
   publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha na atualização.' });
@@ -120,6 +121,7 @@ export async function checkForUpdate({ showUpToDate = false } = {}) {
     const asset = selectedAsset(release);
     pendingRelease = release; pendingAsset = asset;
     publish({
+      assetDigest: asset?.digest,
       phase: 'available', progress: 0, version: release.tag_name, title: release.name || `Nexora TV ${release.tag_name}`,
       notes: (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 1200), platform: platformName, assetName: asset?.name
     });
