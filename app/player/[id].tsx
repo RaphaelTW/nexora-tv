@@ -56,7 +56,7 @@ function ActivePlayer() {
         </View>
       {sources.length > 0 ? <ScrollView horizontal style={{ flexGrow: 0, height: 58, marginTop: 8 }} contentContainerStyle={{ gap: 8, alignItems: 'center' }}>
         {sources.map((source, index) => <Pressable key={source.url} focusable accessibilityRole="button" accessibilityState={{ selected: index === sourceIndex }} onPress={() => selectSource(index)} style={[styles.favorite, index === sourceIndex && { borderColor: colors.green }]}>
-          <Text style={styles.favoriteText}>FONTE {index + 1} / {source.provider}</Text>
+          <Text style={styles.favoriteText}>PROVEDOR {index + 1}: {source.provider}</Text>
         </Pressable>)}
       </ScrollView> : null}
       {playerError ? (
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   playerFrame: { flexGrow: 0, flexShrink: 0, maxWidth: 1500, alignSelf: 'center' },
   playerBorder: { flex: 1, padding: 2, borderRadius: radius.lg },
   playerInner: { flex: 1, backgroundColor: colors.black, borderRadius: radius.lg - 2, overflow: 'hidden' },
-  details: { flexGrow: 0, flexShrink: 0, maxWidth: 1500, alignSelf: 'center' },
+  details: { flexGrow: 0, flexShrink: 0, maxWidth: 1500, alignSelf: 'center', marginTop: 4 },
   info: { width: '100%', paddingTop: spacing.md, alignItems: 'center' },
   live: { color: colors.green, fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
   title: { color: colors.text, fontWeight: '900', fontSize: 28, marginTop: 6, textAlign: 'center' },
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   meta: { color: colors.muted, marginTop: 5, fontSize: 12, textAlign: 'center' },
   favorite: { minHeight: 44, justifyContent: 'center', borderWidth: 1, borderColor: '#242424', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 9 },
   favoriteText: { color: colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  playerActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingTop: spacing.sm },
+  playerActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingTop: 6 },
   note: { color: '#555', fontSize: 10, lineHeight: 14, maxWidth: 1000, alignSelf: 'center', textAlign: 'center', marginTop: spacing.md },
   offlineBox: { width: '100%', alignSelf: 'center', borderWidth: 1, borderColor: '#4A2228', backgroundColor: '#15080B', borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm },
   offlineTitle: { color: colors.red, fontSize: 18, fontWeight: '900' },

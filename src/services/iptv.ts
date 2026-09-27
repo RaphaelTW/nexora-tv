@@ -1,4 +1,5 @@
 import type { Channel, Country } from '@/types/iptv';
+import { readCustomProviders } from './customProviders';
 
 export const IPTV_ENDPOINTS = {
   tdt: 'https://www.tdtchannels.com/lists/tv.m3u8',
@@ -8,6 +9,20 @@ export const IPTV_ENDPOINTS = {
   countryPlaylist: (code: string) =>
     `https://iptv-org.github.io/iptv/countries/${code.toLowerCase()}.m3u`
 } as const;
+
+type PublicProvider = {
+  name: string;
+  playlist: (country: string) => string | undefined;
+  filterCountry?: boolean;
+};
+
+// These feeds are public and do not use credentials. Each request is handled
+// independently below, so an unavailable provider cannot remove another feed.
+const PUBLIC_PROVIDERS: PublicProvider[] = [
+  { name: 'IPTV-org', playlist: (country) => IPTV_ENDPOINTS.countryPlaylist(country) },
+  { name: 'Free-TV', playlist: () => IPTV_ENDPOINTS.freeTv, filterCountry: true },
+  { name: 'TDTChannels', playlist: (country) => country === 'ES' ? IPTV_ENDPOINTS.tdt : undefined }
+];
 
 const TIMEOUT_MS = 15000;
 
@@ -47,7 +62,7 @@ function fetchFreeTv() {
   return freeTvRequest;
 }
 
-export async function fetchCountryChannels(code: string, previous: Channel[] = []): Promise<Channel[]> {
+async function fetchCountryChannelsLegacy(code: string, previous: Channel[] = []): Promise<Channel[]> {
   const country = code.toUpperCase();
   const results = await Promise.allSettled([
     fetchText(IPTV_ENDPOINTS.countryPlaylist(code)).then(text => parseM3U(text, country)),
@@ -64,6 +79,38 @@ export async function fetchCountryChannels(code: string, previous: Channel[] = [
     const extra = parseM3U(await fetchText(IPTV_ENDPOINTS.tdt), country, 'TDTChannels');
     return mergeChannels([...channels, ...matchAdditionalSources(channels, extra)]);
   } catch { return channels; }
+}
+
+export async function fetchCountryChannels(code: string, previous: Channel[] = []): Promise<Channel[]> {
+  const country = code.toUpperCase();
+  const customProviders = await readCustomProviders();
+  const providers: PublicProvider[] = [
+    ...PUBLIC_PROVIDERS,
+    ...customProviders
+      .filter(provider => provider.countryCode === country)
+      .map(provider => ({ name: `Próprio · ${provider.name}`, playlist: () => provider.url }))
+  ].filter(provider => provider.playlist(country));
+  const results = await Promise.allSettled(providers.map(provider => {
+    const playlist = provider.playlist(country)!;
+    const content = provider.name === 'Free-TV' ? fetchFreeTv() : fetchText(playlist);
+    return content.then(text => parseM3U(text, country, provider.name, provider.filterCountry));
+  }));
+  if (results.every(result => result.status === 'rejected')) {
+    throw new Error('No public provider could load its catalog.');
+  }
+  const catalogs = results.flatMap((result, index) => result.status === 'fulfilled' ? result.value : previous.flatMap(channel => {
+    const sources = getChannelSources(channel).filter(source => source.provider === providers[index].name);
+    return sources.length ? [{ ...channel, ...sources[0], sources, alternativeUrls: sources.slice(1).map(source => source.url) }] : [];
+  }));
+
+  // TDTChannels has different IDs. Clear name matches become fallbacks while
+  // its channels not found in the other feeds remain available in the catalog.
+  const primary = catalogs.filter(channel => getChannelSources(channel).some(source => source.provider !== 'TDTChannels'));
+  const tdt = catalogs.filter(channel => getChannelSources(channel).some(source => source.provider === 'TDTChannels'));
+  if (!tdt.length) return mergeChannels(catalogs);
+  const matched = matchAdditionalSources(primary, tdt);
+  const matchedUrls = new Set(matched.map(channel => channel.url));
+  return mergeChannels([...primary, ...matched, ...tdt.filter(channel => !matchedUrls.has(channel.url))]);
 }
 
 // Match only an unambiguous name already present in this country's catalog.
