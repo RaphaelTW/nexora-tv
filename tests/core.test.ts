@@ -3,6 +3,8 @@ import test from 'node:test';
 import { parseM3U, mergeChannels, getChannelSources, isPublicStream } from '../src/services/iptv';
 import { filterChannels, filterUnavailableChannels, toggleFavoriteInList } from '../src/services/channelUtils';
 import { isNewerVersion } from '../src/services/version';
+import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease } from '../src/services/release';
+import { validateReleaseVersion } from '../src/services/releaseValidation';
 import type { Channel } from '../src/types/iptv';
 import { sha256Chunks } from '../src/services/sha256';
 import { nextAvailableSource, playerDimensions, selectApk } from '../src/services/playback';
@@ -82,6 +84,35 @@ test('comparação de versões respeita semver numérico', () => {
   assert.equal(isNewerVersion('v1.0.10', '1.0.2'), true);
   assert.equal(isNewerVersion('v1.0.2', '1.0.2'), false);
   assert.equal(isNewerVersion('v1.0.1', '1.0.2'), false);
+});
+
+test('publicação é bloqueada quando version ou versionCode não avançam', () => {
+  assert.match(validateReleaseVersion('1.1.7', '1.1.6', 11, '1.1.6', 10) || '', /difere/);
+  assert.match(validateReleaseVersion('1.1.6', '1.1.6', 11, '1.1.6', 10) || '', /não é superior/);
+  assert.match(validateReleaseVersion('1.1.7', '1.1.7', 10, '1.1.6', 10) || '', /versionCode/);
+  assert.equal(validateReleaseVersion('v1.1.7', '1.1.7', 11, '1.1.6', 10), undefined);
+});
+
+test('seleciona somente release pública e estável no fallback', () => {
+  const stable = { tag_name: 'v1.1.7', html_url: 'https://example.test/stable', assets: [] };
+  assert.equal(selectStableRelease([
+    { tag_name: 'v1.1.9-beta', html_url: 'https://example.test/pre', assets: [], prerelease: true },
+    { tag_name: 'v1.1.8', html_url: 'https://example.test/draft', assets: [], draft: true },
+    stable
+  ]), stable);
+});
+
+test('atualizador exige SHA-256 completo e apresenta tamanho do download', () => {
+  assert.equal(isSha256Digest(`sha256:${'a'.repeat(64)}`), true);
+  assert.equal(isSha256Digest('sha256:abc'), false);
+  assert.equal(isSha256Digest(undefined), false);
+  assert.equal(formatBytes(1_572_864), '1.5 MB');
+});
+
+test('bloqueio de fontes desconhecidas direciona para permissão, demais erros não', () => {
+  assert.equal(isInstallPermissionBlocked(new Error('INSTALL_FAILED_USER_RESTRICTED: Install blocked by unknown sources')), true);
+  assert.equal(isInstallPermissionBlocked(new Error('SecurityException: Permission denied')), true);
+  assert.equal(isInstallPermissionBlocked(new Error('Arquivo APK corrompido')), false);
 });
 
 test('canais ocultos também são removidos do conteúdo recuperado do cache', () => {

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients, radius, spacing } from '@/theme/tokens';
-import { dismissUpdateProgress, installAvailableUpdate, postponeAvailableUpdate, subscribeToUpdate, type UpdateState } from '@/services/updates';
+import { dismissUpdateProgress, installAvailableUpdate, openInstallPermissionSettings, postponeAvailableUpdate, subscribeToUpdate, type UpdateState } from '@/services/updates';
+import { formatBytes } from '@/services/release';
 
 export function UpdateProgress() {
   const [state, setState] = useState<UpdateState>({ phase: 'idle', progress: 0 });
@@ -10,6 +11,7 @@ export function UpdateProgress() {
   const busy = state.phase === 'checking' || state.phase === 'downloading' || state.phase === 'verifying';
   const available = state.phase === 'available';
   const ready = state.phase === 'ready';
+  const permission = state.phase === 'permission';
   const heading = available ? 'NOVA VERSÃO DISPONÍVEL' : ready ? 'ATUALIZAÇÃO PRONTA' : state.phase === 'error' ? 'NÃO FOI POSSÍVEL ATUALIZAR' : state.phase === 'info' ? 'SISTEMA ATUALIZADO' : 'ATUALIZAÇÃO DO NEXORA';
 
   return <Modal visible={state.phase !== 'idle'} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!busy) dismissUpdateProgress(); }}>
@@ -27,10 +29,11 @@ export function UpdateProgress() {
             <Text style={styles.section}>O QUE HÁ DE NOVO</Text>
             <ScrollView style={styles.notesScroll} contentContainerStyle={styles.notesContent}><Text style={styles.notes}>{state.notes}</Text></ScrollView>
             {state.assetName ? <Text style={styles.asset} numberOfLines={1}>APK · {state.assetName}</Text> : null}
+            {state.assetSize ? <Text style={styles.downloadInfo}>Download: {formatBytes(state.assetSize)} · Use Wi‑Fi ou dados móveis.</Text> : null}
             {state.assetDigest?.startsWith('sha256:') ? <Text selectable style={styles.digest}>SHA-256: {state.assetDigest.slice(7)}</Text> : null}
             <View style={styles.actions}>
               <Pressable focusable onPress={() => void postponeAvailableUpdate()} style={({ focused }) => [styles.secondary, focused && styles.focused]}><Text style={styles.secondaryText}>DEPOIS</Text></Pressable>
-              <Pressable focusable hasTVPreferredFocus onPress={() => void installAvailableUpdate()} style={({ focused }) => [styles.primaryWrap, focused && styles.focused]}><LinearGradient colors={gradients.brand} style={styles.primary}><Text style={styles.primaryText}>{Platform.OS === 'android' && state.assetName ? 'BAIXAR E INSTALAR →' : 'VER RELEASE →'}</Text></LinearGradient></Pressable>
+              <Pressable focusable hasTVPreferredFocus onPress={() => void installAvailableUpdate()} style={({ focused }) => [styles.primaryWrap, focused && styles.focused]}><LinearGradient colors={gradients.brand} style={styles.primary}><Text style={styles.primaryText}>{Platform.OS === 'android' && state.assetName ? 'BAIXAR AGORA →' : 'VER RELEASE →'}</Text></LinearGradient></Pressable>
             </View>
           </> : <>
             <View style={styles.status}>
@@ -40,8 +43,9 @@ export function UpdateProgress() {
             {state.phase === 'downloading' || state.phase === 'verifying' ? <><View style={styles.track}><LinearGradient colors={gradients.brand} style={[styles.fill, { width: `${Math.round(state.progress * 100)}%` }]} /></View><Text style={styles.percent}>{Math.round(state.progress * 100)}%</Text></> : null}
             {ready ? <View style={styles.actions}>
               <Pressable focusable onPress={() => void postponeAvailableUpdate()} style={({ focused }) => [styles.secondary, focused && styles.focused]}><Text style={styles.secondaryText}>DEPOIS</Text></Pressable>
+              {Platform.OS === 'android' ? <Pressable focusable onPress={() => void openInstallPermissionSettings()} style={({ focused }) => [styles.secondary, focused && styles.focused]}><Text style={styles.secondaryText}>PERMITIR INSTALAÇÃO</Text></Pressable> : null}
               <Pressable focusable hasTVPreferredFocus onPress={() => void installAvailableUpdate()} style={({ focused }) => [styles.primaryWrap, focused && styles.focused]}><LinearGradient colors={gradients.brand} style={styles.primary}><Text style={styles.primaryText}>INSTALAR →</Text></LinearGradient></Pressable>
-            </View> : !busy ? <Pressable focusable hasTVPreferredFocus onPress={dismissUpdateProgress} style={({ focused }) => [styles.close, focused && styles.focused]}><Text style={styles.closeText}>FECHAR</Text></Pressable> : null}
+            </View> : permission ? <View style={styles.actions}><Pressable focusable onPress={dismissUpdateProgress} style={({ focused }) => [styles.secondary, focused && styles.focused]}><Text style={styles.secondaryText}>DEPOIS</Text></Pressable><Pressable focusable hasTVPreferredFocus onPress={() => void openInstallPermissionSettings()} style={({ focused }) => [styles.primaryWrap, focused && styles.focused]}><LinearGradient colors={gradients.brand} style={styles.primary}><Text style={styles.primaryText}>ABRIR CONFIGURAÇÕES →</Text></LinearGradient></Pressable></View> : !busy ? <Pressable focusable hasTVPreferredFocus onPress={dismissUpdateProgress} style={({ focused }) => [styles.close, focused && styles.focused]}><Text style={styles.closeText}>FECHAR</Text></Pressable> : null}
           </>}
         </View>
       </LinearGradient>
@@ -58,6 +62,7 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 22 }, version: { color: colors.black, backgroundColor: colors.green, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, fontWeight: '900', fontSize: 11 }, platform: { color: colors.text, borderWidth: 1, borderColor: '#303030', borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7, fontWeight: '800', fontSize: 10 },
   section: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.5, marginTop: 22, marginBottom: 8 }, notesScroll: { maxHeight: 190, borderWidth: 1, borderColor: '#1D1D1D', backgroundColor: '#090909', borderRadius: radius.md }, notesContent: { padding: 14 }, notes: { color: '#C6C6C6', lineHeight: 20, fontSize: 12 }, asset: { color: '#555', fontSize: 9, marginTop: 10 },
   digest: { color: colors.green, fontSize: 9, marginTop: 5 },
+  downloadInfo: { color: colors.muted, fontSize: 10, marginTop: 8 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10, marginTop: 22 }, secondary: { minHeight: 48, justifyContent: 'center', borderWidth: 1, borderColor: '#333', borderRadius: radius.pill, paddingHorizontal: 18 }, secondaryText: { color: colors.muted, fontSize: 10, fontWeight: '900' },
   primaryWrap: { borderRadius: radius.pill }, primary: { minHeight: 48, justifyContent: 'center', borderRadius: radius.pill, paddingHorizontal: 20 }, primaryText: { color: colors.black, fontSize: 10, fontWeight: '900', letterSpacing: .5 }, focused: { borderRadius: radius.pill, outlineColor: colors.green, outlineWidth: 3, transform: [{ scale: 1.04 }] } as any,
   status: { minHeight: 150, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 }, statusIcon: { color: colors.green, fontSize: 38, fontWeight: '900' }, errorIcon: { color: colors.red }, message: { color: colors.muted, textAlign: 'center', lineHeight: 20, marginTop: 14 },

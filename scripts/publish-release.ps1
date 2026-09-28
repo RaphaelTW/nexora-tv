@@ -6,6 +6,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
+$validator = Join-Path $root 'scripts\validate-release.mjs'
+node $validator $Version
+if ($LASTEXITCODE -ne 0) { throw 'Validação de versão falhou. A publicação foi interrompida.' }
 $tag = "v$Version"
 $output = Join-Path $root "release-artifacts\$tag"
 $mobileOutput = Join-Path $output "nexora-tv-v$Version-android.apk"

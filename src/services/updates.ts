@@ -6,14 +6,15 @@ import { Linking, Platform } from 'react-native';
 import { selectApk } from './playback';
 import { isNewerVersion } from './version';
 import { sha256File } from './apkIntegrity';
+import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease, type GithubRelease, type ReleaseAsset } from './release';
 
 const LATEST_RELEASE = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases/latest';
 const RELEASES_LIST = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases?per_page=5';
 const DISMISSED_KEY = 'nexora:dismissed-update';
-type Asset = { name: string; label?: string; browser_download_url: string; digest?: string; size?: number };
-type Release = { tag_name: string; name?: string; body?: string; html_url: string; assets?: Asset[] };
+type Asset = ReleaseAsset;
+type Release = GithubRelease;
 export type UpdateState = {
-  phase: 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'ready' | 'info' | 'error';
+  phase: 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'ready' | 'permission' | 'info' | 'error';
   progress: number;
   message?: string;
   version?: string;
@@ -22,6 +23,7 @@ export type UpdateState = {
   platform?: string;
   assetName?: string;
   assetDigest?: string;
+  assetSize?: number;
 };
 
 let state: UpdateState = { phase: 'idle', progress: 0 };
@@ -44,7 +46,7 @@ export async function installAvailableUpdate() {
       const contentUri = await FileSystem.getContentUriAsync(downloadedUpdateUri);
       await IntentLauncher.startActivityAsync('android.intent.action.VIEW', { data: contentUri, type: 'application/vnd.android.package-archive', flags: 1 });
     } catch (error) {
-      publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Falha ao abrir o instalador.' });
+      publish({ ...state, phase: isInstallPermissionBlocked(error) ? 'permission' : 'error', progress: 0, message: isInstallPermissionBlocked(error) ? 'O Android bloqueou instalações desta fonte. Permita a instalação e tente novamente.' : error instanceof Error ? error.message : 'Falha ao abrir o instalador.' });
     }
     return;
   }
@@ -54,6 +56,16 @@ export async function installAvailableUpdate() {
   }
   dismissUpdateProgress();
   await Linking.openURL(release.html_url);
+}
+
+export async function openInstallPermissionSettings() {
+  if (Platform.OS !== 'android') return;
+  const packageName = Constants.expoConfig?.android?.package;
+  try {
+    await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.MANAGE_UNKNOWN_APP_SOURCES, packageName ? { data: `package:${packageName}` } : {});
+  } catch (error) {
+    publish({ ...state, phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Não foi possível abrir as configurações de instalação.' });
+  }
 }
 
 async function fetchLatestRelease(): Promise<Release> {
@@ -71,8 +83,9 @@ async function fetchLatestRelease(): Promise<Release> {
     lastStatus = response.status;
     if (!response.ok) continue;
     const payload = await response.json() as Release | Release[];
-    const release = Array.isArray(payload) ? payload.find((item) => item.tag_name && item.assets) : payload;
-    if (release?.tag_name) return release;
+    const releases = Array.isArray(payload) ? payload : [payload];
+    const release = selectStableRelease(releases);
+    if (release) return release;
   }
   throw new Error(lastStatus === 404 ? 'Release não encontrada. Confirme se o repositório e a release estão públicos.' : `GitHub respondeu ${lastStatus || 'sem conexão'}`);
 }
@@ -86,6 +99,8 @@ function showDownloadError(error: unknown) {
 }
 
 async function downloadUpdate(asset: Asset) {
+  const digest = asset.digest;
+  if (!isSha256Digest(digest)) throw new Error('Esta release não fornece um SHA-256 válido para o APK. O download foi bloqueado por segurança.');
   if (!FileSystem.cacheDirectory) throw new Error('Armazenamento temporário indisponível.');
   const destination = `${FileSystem.cacheDirectory}${asset.name}`;
   downloadedUpdateUri = null;
@@ -97,11 +112,9 @@ async function downloadUpdate(asset: Asset) {
   if (!result) throw new Error('Download cancelado.');
   const info = await FileSystem.getInfoAsync(result.uri);
   if (!info.exists || (asset.size && info.size !== asset.size)) throw new Error('O tamanho do APK não corresponde à release.');
-  if (asset.digest?.startsWith('sha256:')) {
-    publish({ ...state, phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
-    const actual = await sha256File(result.uri, (progress) => publish({ ...state, phase: 'verifying', progress, message: 'Validando assinatura SHA-256…' }));
-    if (actual.toLowerCase() !== asset.digest.slice(7).toLowerCase()) throw new Error('A assinatura SHA-256 do APK é inválida.');
-  }
+  publish({ ...state, phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
+  const actual = await sha256File(result.uri, (progress) => publish({ ...state, phase: 'verifying', progress, message: 'Validando assinatura SHA-256…' }));
+  if (actual.toLowerCase() !== digest.slice(7).toLowerCase()) throw new Error('A assinatura SHA-256 do APK é inválida.');
   downloadedUpdateUri = result.uri;
   publish({ ...state, phase: 'ready', progress: 1, message: 'Atualização baixada e verificada. Deseja instalar agora?' });
 }
@@ -119,17 +132,16 @@ export async function checkForUpdate({ showUpToDate = false } = {}) {
     const isTV = Boolean((Platform as any).isTV);
     const platformName = isTV ? 'Android TV' : Platform.OS === 'web' ? 'Web' : 'Android Mobile';
     const asset = selectedAsset(release);
+    if (Platform.OS === 'android' && !asset) throw new Error(`Não há APK compatível para ${platformName} nesta release.`);
+    if (Platform.OS === 'android' && !isSha256Digest(asset?.digest)) throw new Error('A release foi encontrada, mas o APK não possui SHA-256 válido. Publique novamente com o hash da GitHub Release.');
     pendingRelease = release; pendingAsset = asset;
     publish({
       assetDigest: asset?.digest,
       phase: 'available', progress: 0, version: release.tag_name, title: release.name || `Nexora TV ${release.tag_name}`,
-      notes: (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 1200), platform: platformName, assetName: asset?.name
+      notes: (release.body || 'Veja as melhorias e correções desta versão.').slice(0, 1200), platform: platformName, assetName: asset?.name, assetSize: asset?.size
     });
-    if (Platform.OS === 'android') {
-      if (!asset) throw new Error(`APK para ${platformName} não encontrado na release.`);
-      void downloadUpdate(asset).catch(showDownloadError);
-    }
   } catch (error) {
-    if (showUpToDate) publish({ phase: 'error', progress: 0, message: error instanceof Error ? error.message : 'Tente novamente mais tarde.' });
+    const message = error instanceof Error ? error.message : 'Tente novamente mais tarde.';
+    if (showUpToDate || /APK compatível|SHA-256 válido|Release não encontrada/i.test(message)) publish({ phase: 'error', progress: 0, message });
   }
 }

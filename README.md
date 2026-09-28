@@ -173,6 +173,34 @@ npx eas build:configure
 
 Depois use normalmente `npm run build:apk:mobile` ou `npm run build:apk:tv`. O `projectId` criado pelo EAS ficará associado ao seu projeto/conta.
 
+### Publicar uma atualização de APK com segurança
+
+O atualizador interno consulta somente a última GitHub Release pública e estável. Ao encontrar uma versão mais nova, ele mostra as notas, o tamanho do APK e o aviso de uso de Wi-Fi/dados móveis. O download só começa após a pessoa escolher **Baixar agora**. Depois do download, o APK é validado por SHA-256 e o Android pede a confirmação final de instalação.
+
+Antes de gerar os dois APKs, altere em `app.config.ts`:
+
+```ts
+version: '1.1.7',       // mesma versão da tag/release: v1.1.7
+android: {
+  versionCode: 11,      // inteiro e sempre maior que o da release anterior
+}
+```
+
+Gere os APKs de celular e TV, então publique:
+
+```powershell
+npm run release:publish -- -Version 1.1.7 -MobileApk C:\caminho\mobile.apk -TvApk C:\caminho\tv.apk
+```
+
+O comando interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a tag já existe, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
+
+- `nexora-tv-v1.1.7-android.apk`
+- `nexora-tv-v1.1.7-android-tv.apk`
+
+O app exige o digest `sha256:` retornado pela GitHub Release; sem hash SHA-256 válido o APK não é baixado. Publique releases públicas, sem marcar como draft ou pre-release. Mantenha a mesma chave de assinatura Android em todos os builds: sem ela, Android não aceita a instalação como atualização.
+
+Em Android 8 ou superior, caso o sistema bloqueie a instalação, toque em **Permitir instalação** na tela de atualização, habilite a instalação para o Nexora TV e volte para instalar o APK.
+
 ## 🌐 Web
 
 O player web usa **hls.js** para streams `.m3u8` em navegadores com Media Source Extensions. Streams progressivos são enviados diretamente ao elemento `<video>`.
