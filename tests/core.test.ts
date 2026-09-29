@@ -5,6 +5,7 @@ import { filterChannels, filterUnavailableChannels, toggleFavoriteInList } from 
 import { isNewerVersion } from '../src/services/version';
 import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease } from '../src/services/release';
 import { validateReleaseVersion } from '../src/services/releaseValidation';
+import { isTVUpdateBuild } from '../src/services/updatePlatform';
 import type { Channel } from '../src/types/iptv';
 import { sha256Chunks } from '../src/services/sha256';
 import { nextAvailableSource, playerDimensions, selectApk } from '../src/services/playback';
@@ -113,6 +114,12 @@ test('bloqueio de fontes desconhecidas direciona para permissão, demais erros n
   assert.equal(isInstallPermissionBlocked(new Error('INSTALL_FAILED_USER_RESTRICTED: Install blocked by unknown sources')), true);
   assert.equal(isInstallPermissionBlocked(new Error('SecurityException: Permission denied')), true);
   assert.equal(isInstallPermissionBlocked(new Error('Arquivo APK corrompido')), false);
+});
+
+test('atualizador escolhe a variante definida no build, mesmo se a detecção do aparelho falhar', () => {
+  assert.equal(isTVUpdateBuild(true, false), true);
+  assert.equal(isTVUpdateBuild(false, true), false);
+  assert.equal(isTVUpdateBuild(undefined, true), true);
 });
 
 test('canais ocultos também são removidos do conteúdo recuperado do cache', () => {

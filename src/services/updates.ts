@@ -7,6 +7,7 @@ import { selectApk } from './playback';
 import { isNewerVersion } from './version';
 import { sha256File } from './apkIntegrity';
 import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease, type GithubRelease, type ReleaseAsset } from './release';
+import { isTVUpdateBuild } from './updatePlatform';
 
 const LATEST_RELEASE = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases/latest';
 const RELEASES_LIST = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases?per_page=5';
@@ -31,6 +32,7 @@ let pendingRelease: Release | null = null;
 let pendingAsset: Asset | undefined;
 let downloadedUpdateUri: string | null = null;
 const listeners = new Set<(next: UpdateState) => void>();
+function isTVBuild() { return isTVUpdateBuild(Constants.expoConfig?.extra?.isTV, Boolean((Platform as any).isTV)); }
 function publish(next: UpdateState) { state = next; listeners.forEach((listener) => listener(next)); }
 export function subscribeToUpdate(listener: (next: UpdateState) => void) { listener(state); listeners.add(listener); return () => { listeners.delete(listener); }; }
 export function dismissUpdateProgress() { publish({ phase: 'idle', progress: 0 }); }
@@ -91,7 +93,7 @@ async function fetchLatestRelease(): Promise<Release> {
 }
 
 function selectedAsset(release: Release) {
-  const isTV = Boolean((Platform as any).isTV);
+  const isTV = isTVBuild();
   return selectApk((release.assets || []).map(asset => ({ ...asset, name: asset.label || asset.name })), isTV);
 }
 function showDownloadError(error: unknown) {
@@ -129,7 +131,7 @@ export async function checkForUpdate({ showUpToDate = false } = {}) {
       return;
     }
     if (!showUpToDate && await AsyncStorage.getItem(DISMISSED_KEY) === release.tag_name) return;
-    const isTV = Boolean((Platform as any).isTV);
+    const isTV = isTVBuild();
     const platformName = isTV ? 'Android TV' : Platform.OS === 'web' ? 'Web' : 'Android Mobile';
     const asset = selectedAsset(release);
     if (Platform.OS === 'android' && !asset) throw new Error(`Não há APK compatível para ${platformName} nesta release.`);
