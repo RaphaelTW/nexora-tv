@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.9 — Em preparação
+
+- Reutiliza a consulta à GitHub Release por até seis horas com ETag, reduzindo rede e risco de limite da API.
+- Tenta novamente o download de APK após falhas transitórias e verifica espaço livre antes de iniciar.
+- Exibe um aviso discreto em Ajustes quando a última verificação de atualização falha.
+
+## 1.1.8 — 2026-09-28
+
+- Corrige o atualizador para preservar a variante do build: Android TV baixa apenas o APK de TV e Mobile apenas o APK Mobile.
+- Exige confirmação antes do download, valida SHA-256 e orienta a permissão de instalação no Android.
+- Adiciona bloqueio de publicação quando `version` ou `versionCode` não avançam.
+
+## 1.1.7 — 2026-09-28
+
+- Publica APKs separados para Android Mobile e Android TV, ambos com hashes SHA-256 da GitHub Release.
+
 ## 1.1.4 — 2026-09-23
 
 - Corrige espaços vazios no player mobile com altura explícita de vídeo e fontes em uma faixa horizontal.

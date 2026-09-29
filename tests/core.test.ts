@@ -3,7 +3,7 @@ import test from 'node:test';
 import { parseM3U, mergeChannels, getChannelSources, isPublicStream } from '../src/services/iptv';
 import { filterChannels, filterUnavailableChannels, toggleFavoriteInList } from '../src/services/channelUtils';
 import { isNewerVersion } from '../src/services/version';
-import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease } from '../src/services/release';
+import { formatBytes, hasEnoughStorage, isInstallPermissionBlocked, isSha256Digest, isUpdateCacheFresh, selectStableRelease } from '../src/services/release';
 import { validateReleaseVersion } from '../src/services/releaseValidation';
 import { isTVUpdateBuild } from '../src/services/updatePlatform';
 import type { Channel } from '../src/types/iptv';
@@ -108,6 +108,14 @@ test('atualizador exige SHA-256 completo e apresenta tamanho do download', () =>
   assert.equal(isSha256Digest('sha256:abc'), false);
   assert.equal(isSha256Digest(undefined), false);
   assert.equal(formatBytes(1_572_864), '1.5 MB');
+});
+
+test('cache de release expira em seis horas e download reserva espaço extra', () => {
+  const now = 1_000_000_000;
+  assert.equal(isUpdateCacheFresh(now - (6 * 60 * 60 * 1000 - 1), now), true);
+  assert.equal(isUpdateCacheFresh(now - 6 * 60 * 60 * 1000, now), false);
+  assert.equal(hasEnoughStorage(120 * 1024 * 1024, 90 * 1024 * 1024), true);
+  assert.equal(hasEnoughStorage(109 * 1024 * 1024, 90 * 1024 * 1024), false);
 });
 
 test('bloqueio de fontes desconhecidas direciona para permissão, demais erros não', () => {

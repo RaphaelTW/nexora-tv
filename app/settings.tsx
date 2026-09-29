@@ -7,7 +7,7 @@ import { AppShell } from '@/components/AppShell';
 import { RGBLoader } from '@/components/RGBLoader';
 import { useApp } from '@/state/AppContext';
 import { colors, radius, spacing } from '@/theme/tokens';
-import { checkForUpdate } from '@/services/updates';
+import { checkForUpdate, subscribeToUpdateCheckHealth, type UpdateCheckHealth } from '@/services/updates';
 import { addCustomProvider, readCustomProviders, removeCustomProvider, type CustomProvider } from '@/services/customProviders';
 
 export default function SettingsScreen() {
@@ -18,12 +18,14 @@ export default function SettingsScreen() {
   const [providerCountry, setProviderCountry] = useState('BR');
   const [providerUrl, setProviderUrl] = useState('');
   const [providerError, setProviderError] = useState<string | null>(null);
+  const [updateHealth, setUpdateHealth] = useState<UpdateCheckHealth>({ lastCheckedAt: null, lastError: null });
   useEffect(() => {
     if (!pixCopied) return;
     const timer = setTimeout(() => setPixCopied(false), 2500);
     return () => clearTimeout(timer);
   }, [pixCopied]);
   useEffect(() => { void readCustomProviders().then(setCustomProviders); }, []);
+  useEffect(() => subscribeToUpdateCheckHealth(setUpdateHealth), []);
   const copyPix = async () => {
     await Clipboard.setStringAsync('c15b0dc5-808e-4b1b-aa90-6ff25ae1c0d9');
     setPixCopied(true);
@@ -85,6 +87,7 @@ export default function SettingsScreen() {
       </View>
       {syncing ? <View style={styles.loader}><RGBLoader label="Atualizando países..." /></View> : null}
       {syncError ? <Text style={styles.error}>Última sincronização: {syncError}</Text> : null}
+      {updateHealth.lastError ? <Text style={styles.updateWarning}>Atualização: a última verificação falhou. Toque em “VERIFICAR ATUALIZAÇÃO” para tentar novamente.</Text> : null}
       <Text style={styles.legal}>Nexora TV não hospeda transmissões. O aplicativo organiza links públicos fornecidos pelo IPTV-org. A disponibilidade e os direitos de cada sinal pertencem às respectivas fontes.</Text>
     </AppShell>
   );
@@ -122,5 +125,6 @@ const styles = StyleSheet.create({
   buttonText: { color: colors.green, fontWeight: '900', fontSize: 10, letterSpacing: 1 },
   danger: { borderColor: '#38151B' }, dangerText: { color: colors.red },
   loader: { paddingVertical: 32 }, error: { color: colors.red, marginTop: 18 },
+  updateWarning: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 18 },
   legal: { color: '#555', fontSize: 10, lineHeight: 16, marginTop: 38, maxWidth: 850 }
 });

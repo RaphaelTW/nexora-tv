@@ -6,12 +6,18 @@ import { Linking, Platform } from 'react-native';
 import { selectApk } from './playback';
 import { isNewerVersion } from './version';
 import { sha256File } from './apkIntegrity';
-import { formatBytes, isInstallPermissionBlocked, isSha256Digest, selectStableRelease, type GithubRelease, type ReleaseAsset } from './release';
+import { formatBytes, hasEnoughStorage, isInstallPermissionBlocked, isSha256Digest, isUpdateCacheFresh, selectStableRelease, type GithubRelease, type ReleaseAsset } from './release';
 import { isTVUpdateBuild } from './updatePlatform';
 
 const LATEST_RELEASE = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases/latest';
 const RELEASES_LIST = 'https://api.github.com/repos/RaphaelTW/nexora-tv/releases?per_page=5';
 const DISMISSED_KEY = 'nexora:dismissed-update';
+const RELEASE_CACHE_KEY = 'nexora:update:release';
+const RELEASE_ETAG_KEY = 'nexora:update:etag';
+const LAST_CHECK_KEY = 'nexora:update:last-check';
+const LAST_ERROR_KEY = 'nexora:update:last-error';
+const UPDATE_CACHE_MS = 6 * 60 * 60 * 1000;
+const DOWNLOAD_ATTEMPTS = 3;
 type Asset = ReleaseAsset;
 type Release = GithubRelease;
 export type UpdateState = {
@@ -26,15 +32,34 @@ export type UpdateState = {
   assetDigest?: string;
   assetSize?: number;
 };
+export type UpdateCheckHealth = { lastCheckedAt: number | null; lastError: string | null };
 
 let state: UpdateState = { phase: 'idle', progress: 0 };
 let pendingRelease: Release | null = null;
 let pendingAsset: Asset | undefined;
 let downloadedUpdateUri: string | null = null;
 const listeners = new Set<(next: UpdateState) => void>();
+const healthListeners = new Set<(next: UpdateCheckHealth) => void>();
+let activeCheck: Promise<void> | null = null;
 function isTVBuild() { return isTVUpdateBuild(Constants.expoConfig?.extra?.isTV, Boolean((Platform as any).isTV)); }
 function publish(next: UpdateState) { state = next; listeners.forEach((listener) => listener(next)); }
+function publishHealth(next: UpdateCheckHealth) { healthListeners.forEach((listener) => listener(next)); }
 export function subscribeToUpdate(listener: (next: UpdateState) => void) { listener(state); listeners.add(listener); return () => { listeners.delete(listener); }; }
+export function subscribeToUpdateCheckHealth(listener: (next: UpdateCheckHealth) => void) {
+  void readUpdateCheckHealth().then(listener); healthListeners.add(listener); return () => { healthListeners.delete(listener); };
+}
+export async function readUpdateCheckHealth(): Promise<UpdateCheckHealth> {
+  const [lastCheckedAt, lastError] = await AsyncStorage.multiGet([LAST_CHECK_KEY, LAST_ERROR_KEY]);
+  return { lastCheckedAt: Number(lastCheckedAt[1]) || null, lastError: lastError[1] || null };
+}
+async function recordUpdateCheckSuccess() {
+  const health = { lastCheckedAt: Date.now(), lastError: null };
+  await AsyncStorage.multiSet([[LAST_CHECK_KEY, String(health.lastCheckedAt)], [LAST_ERROR_KEY, '']]); publishHealth(health);
+}
+async function recordUpdateCheckFailure(message: string) {
+  const health = { lastCheckedAt: Date.now(), lastError: message };
+  await AsyncStorage.multiSet([[LAST_CHECK_KEY, String(health.lastCheckedAt)], [LAST_ERROR_KEY, message]]); publishHealth(health);
+}
 export function dismissUpdateProgress() { publish({ phase: 'idle', progress: 0 }); }
 export async function postponeAvailableUpdate() {
   if (pendingRelease) await AsyncStorage.setItem(DISMISSED_KEY, pendingRelease.tag_name);
@@ -70,24 +95,36 @@ export async function openInstallPermissionSettings() {
   }
 }
 
+async function readCachedRelease() {
+  const value = await AsyncStorage.getItem(RELEASE_CACHE_KEY);
+  if (!value) return null;
+  try { return JSON.parse(value) as Release; } catch { return null; }
+}
 async function fetchLatestRelease(): Promise<Release> {
-  const cacheBuster = `nexora=${Date.now()}`;
+  const etag = await AsyncStorage.getItem(RELEASE_ETAG_KEY);
   const headers = {
     Accept: 'application/vnd.github+json',
-    'Cache-Control': 'no-cache, no-store',
-    Pragma: 'no-cache',
+    ...(etag ? { 'If-None-Match': etag } : {}),
     'X-GitHub-Api-Version': '2022-11-28'
   };
-  const attempts = [`${LATEST_RELEASE}?${cacheBuster}`, `${RELEASES_LIST}&${cacheBuster}`];
+  const attempts = [LATEST_RELEASE, RELEASES_LIST];
   let lastStatus = 0;
   for (const url of attempts) {
     const response = await fetch(url, { headers, cache: 'no-store' });
     lastStatus = response.status;
+    if (response.status === 304) {
+      const cached = await readCachedRelease();
+      if (cached) return cached;
+      continue;
+    }
     if (!response.ok) continue;
     const payload = await response.json() as Release | Release[];
     const releases = Array.isArray(payload) ? payload : [payload];
     const release = selectStableRelease(releases);
-    if (release) return release;
+    if (release) {
+      await AsyncStorage.multiSet([[RELEASE_CACHE_KEY, JSON.stringify(release)], [RELEASE_ETAG_KEY, response.headers.get('etag') || '']]);
+      return release;
+    }
   }
   throw new Error(lastStatus === 404 ? 'Release não encontrada. Confirme se o repositório e a release estão públicos.' : `GitHub respondeu ${lastStatus || 'sem conexão'}`);
 }
@@ -104,14 +141,25 @@ async function downloadUpdate(asset: Asset) {
   const digest = asset.digest;
   if (!isSha256Digest(digest)) throw new Error('Esta release não fornece um SHA-256 válido para o APK. O download foi bloqueado por segurança.');
   if (!FileSystem.cacheDirectory) throw new Error('Armazenamento temporário indisponível.');
+  const freeBytes = await FileSystem.getFreeDiskStorageAsync();
+  if (!hasEnoughStorage(freeBytes, asset.size)) throw new Error(`Espaço insuficiente. Libere pelo menos ${formatBytes((asset.size || 0) + 20 * 1024 * 1024)} para baixar esta atualização.`);
   const destination = `${FileSystem.cacheDirectory}${asset.name}`;
   downloadedUpdateUri = null;
-  publish({ ...state, phase: 'downloading', progress: 0, message: `Baixando ${asset.name}` });
-  const task = FileSystem.createDownloadResumable(asset.browser_download_url, destination, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
-    publish({ ...state, phase: 'downloading', progress: totalBytesExpectedToWrite > 0 ? totalBytesWritten / totalBytesExpectedToWrite : 0, message: `Baixando ${asset.name}` });
-  });
-  const result = await task.downloadAsync();
-  if (!result) throw new Error('Download cancelado.');
+  let result: FileSystem.FileSystemDownloadResult | undefined;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
+    try {
+      publish({ ...state, phase: 'downloading', progress: 0, message: attempt === 1 ? `Baixando ${asset.name}` : `Retomando download (${attempt}/${DOWNLOAD_ATTEMPTS})…` });
+      const task = FileSystem.createDownloadResumable(asset.browser_download_url, destination, {}, ({ totalBytesWritten, totalBytesExpectedToWrite }) => {
+        publish({ ...state, phase: 'downloading', progress: totalBytesExpectedToWrite > 0 ? totalBytesWritten / totalBytesExpectedToWrite : 0, message: `Baixando ${asset.name} (${attempt}/${DOWNLOAD_ATTEMPTS})` });
+      });
+      result = await task.downloadAsync();
+      if (result) break;
+      lastError = new Error('Download cancelado.');
+    } catch (error) { lastError = error; }
+    if (attempt < DOWNLOAD_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+  }
+  if (!result) throw lastError instanceof Error ? lastError : new Error('Não foi possível concluir o download.');
   const info = await FileSystem.getInfoAsync(result.uri);
   if (!info.exists || (asset.size && info.size !== asset.size)) throw new Error('O tamanho do APK não corresponde à release.');
   publish({ ...state, phase: 'verifying', progress: 0, message: 'Validando assinatura SHA-256…' });
@@ -121,10 +169,14 @@ async function downloadUpdate(asset: Asset) {
   publish({ ...state, phase: 'ready', progress: 1, message: 'Atualização baixada e verificada. Deseja instalar agora?' });
 }
 
-export async function checkForUpdate({ showUpToDate = false } = {}) {
+async function checkForUpdateInternal({ showUpToDate = false } = {}) {
   if (showUpToDate) publish({ phase: 'checking', progress: 0, message: 'Consultando a release mais recente…' });
   try {
-    const release = await fetchLatestRelease();
+    const lastCheck = Number(await AsyncStorage.getItem(LAST_CHECK_KEY)) || null;
+    const cachedRelease = !showUpToDate && isUpdateCacheFresh(lastCheck, Date.now(), UPDATE_CACHE_MS) ? await readCachedRelease() : null;
+    const release = cachedRelease || await fetchLatestRelease();
+    if (!release) throw new Error('Release não encontrada. Tente novamente mais tarde.');
+    await recordUpdateCheckSuccess();
     const current = Constants.expoConfig?.version || '0.0.0';
     if (!isNewerVersion(release.tag_name, current)) {
       if (showUpToDate) publish({ phase: 'info', progress: 1, title: 'Nexora TV atualizado', message: `Você já usa a versão mais recente (v${current}).` });
@@ -144,6 +196,12 @@ export async function checkForUpdate({ showUpToDate = false } = {}) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Tente novamente mais tarde.';
+    await recordUpdateCheckFailure(message);
     if (showUpToDate || /APK compatível|SHA-256 válido|Release não encontrada/i.test(message)) publish({ phase: 'error', progress: 0, message });
   }
+}
+export function checkForUpdate(options: { showUpToDate?: boolean } = {}) {
+  if (activeCheck) return activeCheck;
+  activeCheck = checkForUpdateInternal(options).finally(() => { activeCheck = null; });
+  return activeCheck;
 }

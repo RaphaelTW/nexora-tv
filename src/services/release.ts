@@ -19,3 +19,12 @@ export function isInstallPermissionBlocked(error: unknown) {
   const message = error instanceof Error ? error.message : String(error || '');
   return /unknown sources|not allowed to install|install packages|permission denied|securityexception/i.test(message);
 }
+
+export function isUpdateCacheFresh(checkedAt: number | null, now = Date.now(), maxAgeMs = 6 * 60 * 60 * 1000) {
+  return checkedAt !== null && checkedAt > 0 && now - checkedAt < maxAgeMs;
+}
+
+export function hasEnoughStorage(freeBytes: number, assetSize?: number) {
+  if (!assetSize) return true;
+  return freeBytes >= assetSize + 20 * 1024 * 1024;
+}

@@ -180,26 +180,28 @@ O atualizador interno consulta somente a última GitHub Release pública e está
 Antes de gerar os dois APKs, altere em `app.config.ts`:
 
 ```ts
-version: '1.1.7',       // mesma versão da tag/release: v1.1.7
+version: '1.1.9',       // mesma versão da tag/release: v1.1.9
 android: {
-  versionCode: 11,      // inteiro e sempre maior que o da release anterior
+  versionCode: 13,      // inteiro e sempre maior que o da release anterior
 }
 ```
 
 Gere os APKs de celular e TV, então publique:
 
 ```powershell
-npm run release:publish -- -Version 1.1.7 -MobileApk C:\caminho\mobile.apk -TvApk C:\caminho\tv.apk
+npm run release:publish -- -Version 1.1.9 -MobileApk C:\caminho\mobile.apk -TvApk C:\caminho\tv.apk
 ```
 
 O comando interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a tag já existe, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
 
-- `nexora-tv-v1.1.7-android.apk`
-- `nexora-tv-v1.1.7-android-tv.apk`
+- `nexora-tv-v1.1.9-android.apk`
+- `nexora-tv-v1.1.9-android-tv.apk`
 
 O app exige o digest `sha256:` retornado pela GitHub Release; sem hash SHA-256 válido o APK não é baixado. Publique releases públicas, sem marcar como draft ou pre-release. Mantenha a mesma chave de assinatura Android em todos os builds: sem ela, Android não aceita a instalação como atualização.
 
 Em Android 8 ou superior, caso o sistema bloqueie a instalação, toque em **Permitir instalação** na tela de atualização, habilite a instalação para o Nexora TV e volte para instalar o APK.
+
+O app reutiliza a última consulta à GitHub Release por até seis horas, reduzindo consumo de rede e risco de limite da API. A verificação manual sempre consulta novamente. Em uma falha de rede, a tela de Ajustes mostra um aviso discreto e o download tenta novamente automaticamente antes de informar erro.
 
 ## 🌐 Web
 
