@@ -31,6 +31,10 @@ export function StreamPlayer({ channel, onError, onPlaying, retryToken = 0 }: { 
     instance.play();
   });
 
+  useEffect(() => {
+    progress.current = { time: -1, changedAt: Date.now(), started: false, failed: false };
+  }, [channel.url, retryToken]);
+
   useEventListener(player, 'statusChange', ({ status, error }) => {
     if (status === 'error') fail(error?.message || 'O sinal não pôde ser reproduzido.');
   });

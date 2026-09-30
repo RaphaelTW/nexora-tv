@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AppShell } from '@/components/AppShell';
 import { CountryCard } from '@/components/CountryCard';
 import { ChannelCard } from '@/components/ChannelCard';
@@ -26,6 +26,10 @@ export default function SearchScreen() {
     const country = countries.find((item) => item.code === channel.countryCode);
     return { ...channel, countryName: country?.name, flag: country?.flag };
   }), [countries, globalIndex, q]);
+  const sections = useMemo(() => [
+    ...(channelResults.length ? [{ title: 'CANAIS RECENTES / FAVORITOS', data: channelResults }] : []),
+    ...(globalResults.length ? [{ title: 'CATÁLOGO GLOBAL', data: globalResults, queue: globalResults }] : [])
+  ], [channelResults, globalResults]);
 
   useEffect(() => {
     if (q.length < 2 || globalIndex.length || loadingGlobal || globalRequested) return;
@@ -43,19 +47,27 @@ export default function SearchScreen() {
       if (value) { setQuery(value); router.setParams({ q: value }); }
     } catch (error) { Alert.alert('Busca por voz', error instanceof Error ? error.message : 'Não foi possível reconhecer a voz.'); }
   };
-  return (
-    <AppShell title="SEARCH THE SIGNAL">
+  const header = <>
       <Text style={styles.title}>Buscar</Text>
       <View style={styles.searchRow}><TextInput autoFocus value={query} onChangeText={(value) => { setQuery(value); router.setParams({ q: value || undefined }); }} placeholder="País, código ou qualquer canal..." placeholderTextColor="#666" style={styles.input} /><Pressable focusable accessibilityLabel="Buscar por voz" onPress={() => void voiceSearch()} style={styles.voice}><Text style={styles.voiceText}>● VOZ</Text></Pressable></View>
       {!q ? <Text style={styles.tip}>Pesquise países e todos os canais disponíveis no catálogo global. Você também pode usar o microfone ou o botão de voz do Android TV.</Text> : null}
       {!!countryResults.length && <><Text style={styles.section}>PAÍSES</Text><View style={styles.countryGrid}>{countryResults.map((country) => <View key={country.code} style={styles.countryCell}><CountryCard country={country} pinned={pinnedCountries.includes(country.code)} onTogglePin={() => void togglePinnedCountry(country.code)} /></View>)}</View></>}
-      {!!channelResults.length && <><Text style={styles.section}>CANAIS RECENTES / FAVORITOS</Text><View style={styles.channels}>{channelResults.map((channel) => <ChannelCard key={`${channel.id}-${channel.url}`} channel={channel} />)}</View></>}
-      {!!globalResults.length && <><Text style={styles.section}>CATÁLOGO GLOBAL</Text><View style={styles.channels}>{globalResults.map((channel) => <ChannelCard key={`${channel.id}-${channel.url}`} channel={channel} queue={globalResults} />)}</View></>}
       {loadingGlobal ? <Text style={styles.tip}>Preparando índice global de canais…</Text> : null}
       {globalError ? <Text style={styles.error}>Busca global indisponível: {globalError}</Text> : null}
-      {q && !loadingGlobal && !countryResults.length && !channelResults.length && !globalResults.length ? <Text style={styles.tip}>Nada encontrado.</Text> : null}
-    </AppShell>
-  );
+      {q && !loadingGlobal && !countryResults.length && !sections.length ? <Text style={styles.tip}>Nada encontrado.</Text> : null}
+    </>;
+  return <AppShell title="SEARCH THE SIGNAL" scroll={false}><SectionList
+    sections={sections}
+    keyExtractor={(channel) => `${channel.id}-${channel.url}`}
+    renderSectionHeader={({ section }) => <Text style={styles.section}>{section.title}</Text>}
+    renderItem={({ item, section }) => <ChannelCard channel={item} queue={section.queue} />}
+    ListHeaderComponent={header}
+    contentContainerStyle={styles.list}
+    initialNumToRender={12}
+    maxToRenderPerBatch={10}
+    windowSize={7}
+    removeClippedSubviews
+  /></AppShell>;
 }
 const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 42, fontWeight: '900', marginTop: spacing.lg, marginBottom: 18 },
@@ -65,5 +77,5 @@ const styles = StyleSheet.create({
   section: { color: colors.green, fontWeight: '900', letterSpacing: 1.5, fontSize: 10, marginTop: 28, marginBottom: 10 },
   countryGrid: { flexDirection: 'row', flexWrap: 'wrap', margin: -5 },
   countryCell: { width: '50%', padding: 5 },
-  channels: { gap: 10 }, error: { color: colors.red, marginTop: 16 }
+  list: { paddingBottom: spacing.xxl }, error: { color: colors.red, marginTop: 16 }
 });

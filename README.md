@@ -203,6 +203,10 @@ Em Android 8 ou superior, caso o sistema bloqueie a instalação, toque em **Per
 
 O app reutiliza a última consulta à GitHub Release por até seis horas, reduzindo consumo de rede e risco de limite da API. A verificação manual sempre consulta novamente. Em uma falha de rede, a tela de Ajustes mostra um aviso discreto e o download tenta novamente automaticamente antes de informar erro.
 
+### PWA Web
+
+O modo Web é instalável como PWA. O cache do aplicativo é versionado a cada build; páginas usam rede primeiro, enquanto ícones e arquivos estáticos usam cache primeiro. Quando uma nova versão do site for publicada, o app Web mostra **ATUALIZAR** para ativá-la sem depender de limpar o navegador manualmente.
+
 ## 🌐 Web
 
 O player web usa **hls.js** para streams `.m3u8` em navegadores com Media Source Extensions. Streams progressivos são enviados diretamente ao elemento `<video>`.

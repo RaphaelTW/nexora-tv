@@ -1,4 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 
 const path = new URL('../dist/index.html', import.meta.url);
 let html = await readFile(path, 'utf8');
@@ -14,3 +16,11 @@ const head = `<meta name="theme-color" content="#00e887" />
 const register = `<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}</script>`;
 html = html.replace('</head>', `${head}\n  </head>`).replace('</body>', `${register}\n  </body>`);
 await writeFile(path, html);
+
+const require = createRequire(import.meta.url);
+const version = require('../package.json').version;
+let revision = 'local';
+try { revision = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); } catch {}
+const serviceWorkerPath = new URL('../dist/sw.js', import.meta.url);
+const serviceWorker = await readFile(serviceWorkerPath, 'utf8');
+await writeFile(serviceWorkerPath, serviceWorker.replace('__BUILD_ID__', `${version}-${revision}`));

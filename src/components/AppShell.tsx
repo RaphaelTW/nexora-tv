@@ -4,6 +4,8 @@ import { router, usePathname } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, gradients, radius, spacing } from '@/theme/tokens';
+import Constants from 'expo-constants';
+import { isTVUpdateBuild } from '@/services/updatePlatform';
 
 const nav = [
   { label: 'Início', icon: '⌂', href: '/' },
@@ -16,7 +18,7 @@ const nav = [
 export function AppShell({ children, title, scroll = true }: { children: React.ReactNode; title?: string; scroll?: boolean }) {
   const { width } = useWindowDimensions();
   const pathname = usePathname();
-  const isTV = Boolean((Platform as any).isTV);
+  const isTV = isTVUpdateBuild(Constants.expoConfig?.extra?.isTV, Boolean((Platform as any).isTV));
   const wide = isTV || width >= 900;
   const insets = useSafeAreaInsets();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

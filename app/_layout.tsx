@@ -5,6 +5,7 @@ import { AppProvider } from '@/state/AppContext';
 import { checkForUpdate } from '@/services/updates';
 import { UpdateProgress } from '@/components/UpdateProgress';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { WebUpdatePrompt } from '@/components/WebUpdatePrompt';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -15,6 +16,7 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000000' }, animation: 'fade' }} />
       <UpdateProgress />
+      <WebUpdatePrompt />
     </AppProvider></AppErrorBoundary>
   );
 }
