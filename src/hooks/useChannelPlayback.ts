@@ -4,7 +4,7 @@ import type { Channel } from '@/types/iptv';
 import { getChannelSources } from '@/services/iptv';
 import { nextAvailableSource } from '@/services/playback';
 import { preferredSource, PROVIDER_REFRESH_MS, refreshChannelSources, rememberWorkingSource } from '@/services/providerCatalog';
-import { diagnosePlaybackFailure, type PlaybackFailure } from '@/services/playbackDiagnostics';
+import { CHANNEL_UNAVAILABLE_MESSAGE, diagnosePlaybackFailure, type PlaybackFailure } from '@/services/playbackDiagnostics';
 import { markChannelSourceUnavailable } from '@/services/channelHealth';
 
 export function useChannelPlayback(initial: Channel) {
@@ -75,7 +75,7 @@ export function useChannelPlayback(initial: Channel) {
     }
     if (next) { select(next.url); return; }
     setStatus('Sem sinal');
-    setError(`${message} Todas as fontes disponíveis foram tentadas.`);
+    setError(CHANNEL_UNAVAILABLE_MESSAGE);
   };
 
   const handlePlaying = () => {

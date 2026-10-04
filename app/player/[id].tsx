@@ -38,10 +38,7 @@ function ActivePlayer() {
     const next = currentQueue[(Math.max(0, index) + direction + currentQueue.length) % currentQueue.length];
     if (next) { await setCurrentChannel(next, currentQueue); await recordWatch(next); }
   };
-  const hideUnavailable = async () => {
-    await markChannelUnavailable(activeChannel);
-    router.back();
-  };
+  const hideUnavailable = async () => { await markChannelUnavailable(activeChannel); router.back(); };
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom', 'left', 'right']}>
       <WebMetadata title={`${currentChannel.name} — Nexora TV`} description={`Assista ${currentChannel.name} ao vivo no Nexora TV.`} />
@@ -61,15 +58,16 @@ function ActivePlayer() {
       </ScrollView> : null}
       {playerError ? (
         <View style={styles.offlineBox}>
-          <Text style={styles.offlineTitle}>Canal indisponível</Text>
+          <Text style={styles.offlineTitle}>Canal indisponível agora</Text>
           <Text style={styles.offlineText}>{playerError}</Text>
           {failures.map((failure) => <View key={failure.source.url} style={styles.failureRow}>
             <Text style={styles.failureProvider}>{failure.source.provider}</Text>
             <View style={styles.failureCopy}><Text style={styles.failureTitle}>{failure.title}</Text><Text style={styles.failureDetail}>{failure.detail}</Text></View>
           </View>)}
           <View style={styles.offlineActions}>
-            <Pressable focusable onPress={retry} style={styles.offlineButton}><Text style={styles.offlineButtonText}>REINICIAR TODAS AS FONTES</Text></Pressable>
+            <Pressable focusable onPress={retry} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR NOVAMENTE</Text></Pressable>
             {sourceIndex < sources.length - 1 ? <Pressable focusable onPress={tryAlternative} style={styles.offlineButton}><Text style={styles.offlineButtonText}>TENTAR FONTE {sourceIndex + 2}</Text></Pressable> : null}
+            <Pressable focusable onPress={() => router.back()} style={styles.offlineButton}><Text style={styles.offlineButtonText}>VER OUTROS CANAIS</Text></Pressable>
             <Pressable focusable onPress={() => void hideUnavailable()} style={[styles.offlineButton, styles.reportButton]}><Text style={styles.reportText}>OCULTAR POR 6 HORAS</Text></Pressable>
           </View>
         </View>
