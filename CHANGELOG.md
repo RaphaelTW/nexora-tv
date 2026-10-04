@@ -1,10 +1,11 @@
 # Changelog
 
-## 1.1.10 — Em preparação
+## 1.1.10 — 2026-10-04
 
 - Renova o PWA com cache versionado por build, ícones PNG instaláveis e ação para atualizar o site quando houver nova versão.
 - Usa a variante gravada no build também no layout, mantendo a experiência Android TV consistente.
 - Reinicia a telemetria do player ao alternar fontes e virtualiza os resultados da busca global.
+- Simplifica a publicação para um fluxo manual assistido, evitando releases e builds duplicados.
 
 ## 1.1.9 — 2026-09-29
 

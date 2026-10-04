@@ -175,27 +175,36 @@ Depois use normalmente `npm run build:apk:mobile` ou `npm run build:apk:tv`. O `
 
 ### Publicar uma atualização de APK com segurança
 
+O projeto usa um único fluxo de publicação, **manual assistido**: gere os APKs Mobile e TV no EAS, teste os dois arquivos e só então execute o script de publicação. O GitHub Actions apenas valida o código em pushes e pull requests; ele não cria builds, tags ou releases. Isso evita builds duplicados no EAS e troca acidental de assets já publicados.
+
 O atualizador interno consulta somente a última GitHub Release pública e estável. Ao encontrar uma versão mais nova, ele mostra as notas, o tamanho do APK e o aviso de uso de Wi-Fi/dados móveis. O download só começa após a pessoa escolher **Baixar agora**. Depois do download, o APK é validado por SHA-256 e o Android pede a confirmação final de instalação.
 
 Antes de gerar os dois APKs, altere em `app.config.ts`:
 
 ```ts
-version: '1.1.9',       // mesma versão da tag/release: v1.1.9
+version: '1.1.11',      // mesma versão da tag/release: v1.1.11
 android: {
-  versionCode: 13,      // inteiro e sempre maior que o da release anterior
+  versionCode: 15,      // inteiro e sempre maior que o da release anterior
 }
 ```
 
-Gere os APKs de celular e TV, então publique:
+Gere os APKs de celular e TV, instale/teste cada variante no dispositivo correto e então publique:
 
 ```powershell
-npm run release:publish -- -Version 1.1.9 -MobileApk C:\caminho\mobile.apk -TvApk C:\caminho\tv.apk
+npm.cmd run build:apk:mobile
+npm.cmd run build:apk:tv
 ```
 
-O comando interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a tag já existe, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
+Após os dois builds concluírem, baixe os APKs e execute:
 
-- `nexora-tv-v1.1.9-android.apk`
-- `nexora-tv-v1.1.9-android-tv.apk`
+```powershell
+npm.cmd run release:publish -- -Version 1.1.11 -MobileApk C:\caminho\nexora-mobile.apk -TvApk C:\caminho\nexora-tv.apk
+```
+
+O comando valida a versão, calcula SHA-256, cria a tag e envia os dois APKs para a GitHub Release. Ele interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a tag já existe, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
+
+- `nexora-tv-v1.1.11-android.apk`
+- `nexora-tv-v1.1.11-android-tv.apk`
 
 O app exige o digest `sha256:` retornado pela GitHub Release; sem hash SHA-256 válido o APK não é baixado. Publique releases públicas, sem marcar como draft ou pre-release. Mantenha a mesma chave de assinatura Android em todos os builds: sem ela, Android não aceita a instalação como atualização.
 
@@ -279,7 +288,7 @@ npm run typecheck
 npm run build:web
 ```
 
-O GitHub Actions em `.github/workflows/ci.yml` executa essas duas etapas em pushes e pull requests.
+O GitHub Actions em `.github/workflows/ci.yml` executa todas as validações em pushes e pull requests. Ele não publica tags, releases ou APKs.
 
 ## 🧭 Roadmap
 
