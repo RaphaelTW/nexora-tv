@@ -9,7 +9,7 @@ import { isTVUpdateBuild } from '../src/services/updatePlatform';
 import type { Channel } from '../src/types/iptv';
 import { sha256Chunks } from '../src/services/sha256';
 import { nextAvailableSource, playerDimensions, selectApk } from '../src/services/playback';
-import { diagnosePlaybackFailure } from '../src/services/playbackDiagnostics';
+import { RETRY_DELAYS_MS, diagnosePlaybackFailure, shouldRetryPlaybackFailure } from '../src/services/playbackDiagnostics';
 import { matchAdditionalSources, fetchCountryChannels } from '../src/services/iptv';
 
 test('player mobile calcula altura proporcional sem grandes espacos', () => {
@@ -30,6 +30,18 @@ test('diagnostico identifica bloqueio, geobloqueio e CORS por fonte', () => {
   assert.equal(diagnosePlaybackFailure(source, 'Source error response code: 403').kind, 'forbidden');
   assert.equal(diagnosePlaybackFailure(source, 'Geographic region blocked').kind, 'geo-blocked');
   assert.equal(diagnosePlaybackFailure(source, 'CORS request failed').kind, 'cors');
+});
+
+test('diagnostico classifica falhas temporarias e aplica backoff limitado', () => {
+  const source = { url: 'https://one.test/live.m3u8', provider: 'Teste' };
+  assert.equal(diagnosePlaybackFailure(source, 'HTTP 429 Too many requests').kind, 'rate-limited');
+  assert.equal(diagnosePlaybackFailure(source, 'HTTP 503 Service unavailable').kind, 'server');
+  assert.equal(diagnosePlaybackFailure(source, 'Unable to resolve host').kind, 'network');
+  assert.equal(diagnosePlaybackFailure(source, 'Decoder initialization failed').kind, 'decoder');
+  assert.deepEqual(RETRY_DELAYS_MS, [15_000, 60_000, 300_000]);
+  assert.equal(shouldRetryPlaybackFailure('network', 0), true);
+  assert.equal(shouldRetryPlaybackFailure('network', 3), false);
+  assert.equal(shouldRetryPlaybackFailure('decoder', 0), false);
 });
 
 test('atualizador diferencia android de android-tv apesar do nome nexora-tv', () => {

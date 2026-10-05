@@ -18,6 +18,7 @@
     "build:aab:mobile": "npx --yes eas-cli@latest build --platform android --profile production-mobile",
     "build:aab:tv": "npx --yes eas-cli@latest build --platform android --profile production-tv",
     "release:publish": "powershell -ExecutionPolicy Bypass -File scripts/publish-release.ps1",
+    "validate:config": "node scripts/validate-platform-config.mjs",
     "maintenance:check": "npx expo install --check && npm audit --omit=dev",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts"

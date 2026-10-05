@@ -11,11 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.1
           cache: npm
       - run: npm ci
+      - name: Validate Android release contract
+        run: node scripts/validate-release.mjs "$(node -p 'require("./package.json").version')" --ci
+      - run: npm run validate:config
       - run: npm run typecheck
       - run: npm test
       - run: npm run build:web

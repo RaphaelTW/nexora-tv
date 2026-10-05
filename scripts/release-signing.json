@@ -1,0 +1,10 @@
+{
+  "mobile": {
+    "package": "com.raphaeltw.nexoratv",
+    "certificateSha256": "dc16137e19a1941bd0184a4716e208f0ef942f321ae977eaaf11a930ba509c28"
+  },
+  "tv": {
+    "package": "com.raphaeltw.nexoratv.tv",
+    "certificateSha256": "3013365c5ceba1e219ea9aae557308c3779b7d1d26a07054364fe38053dacec6"
+  }
+}

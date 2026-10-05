@@ -40,7 +40,8 @@ export function StreamPlayer({ channel, onError, onPlaying, retryToken = 0 }: { 
         if (data.fatal) {
           const message = 'Este stream não pôde ser aberto no navegador. Pode haver bloqueio de CORS ou geográfico.';
           setError(message);
-          if (!failed) { failed = true; callbacks.current.onError?.(message); }
+          const diagnostic = data.response?.code ? `HTTP ${data.response.code}` : data.details || message;
+          if (!failed) { failed = true; callbacks.current.onError?.(diagnostic); }
         }
       });
     } else {

@@ -201,12 +201,14 @@ Após os dois builds concluírem, baixe os APKs e execute:
 npm.cmd run release:publish -- -Version 1.1.11 -MobileApk C:\caminho\nexora-mobile.apk -TvApk C:\caminho\nexora-tv.apk
 ```
 
-O comando valida a versão, calcula SHA-256, cria a tag e envia os dois APKs para a GitHub Release. Ele interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a tag já existe, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
+O comando valida a versão, calcula SHA-256, cria a tag e abre uma **release em rascunho**. Antes do upload, ele confere no APK o pacote, versão, `versionCode`, certificado de assinatura e, no caso da TV, os recursos Leanback. Depois envia os dois APKs, confere os nomes e hashes SHA-256 publicados pelo GitHub e só então torna a release pública. Se a rede ou o upload falhar, o rascunho e a tag são mantidos para que o mesmo comando retome a publicação com segurança. Ele interrompe a publicação quando a versão informada não coincide com `app.config.ts`, a versão não é maior que a última release ou o `versionCode` não avançou. A release deve conter os assets com estes sufixos, pois o app os seleciona conforme o dispositivo:
 
 - `nexora-tv-v1.1.11-android.apk`
 - `nexora-tv-v1.1.11-android-tv.apk`
 
 O app exige o digest `sha256:` retornado pela GitHub Release; sem hash SHA-256 válido o APK não é baixado. Publique releases públicas, sem marcar como draft ou pre-release. Mantenha a mesma chave de assinatura Android em todos os builds: sem ela, Android não aceita a instalação como atualização.
+
+Para essa inspeção, instale o Android SDK Build-Tools no computador que executa a publicação. As impressões digitais públicas esperadas dos certificados ficam em `scripts/release-signing.json`; atualize-as somente após uma rotação intencional e compatível de chaves.
 
 Em Android 8 ou superior, caso o sistema bloqueie a instalação, toque em **Permitir instalação** na tela de atualização, habilite a instalação para o Nexora TV e volte para instalar o APK.
 
@@ -276,6 +278,10 @@ nexora-tv/
 - não há conta de usuário nem backend obrigatório;
 - nenhuma transmissão é hospedada pelo Nexora TV;
 - `usesCleartextTraffic` está habilitado no Android porque parte das playlists públicas utiliza HTTP. Se você quiser aceitar somente HTTPS, desative essa opção em `app.config.ts`.
+
+### Chaves de assinatura Android
+
+Mobile (`com.raphaeltw.nexoratv`) e TV (`com.raphaeltw.nexoratv.tv`) são aplicativos distintos e cada um precisa manter sua própria chave de assinatura em todos os builds. Antes de publicar, guarde em local seguro e fora do repositório o backup das credenciais Android gerenciadas pelo EAS, incluindo o keystore, alias e senhas. Nunca envie essas credenciais para Git, releases ou conversas. Sem a chave original, o Android não aceita uma nova versão como atualização do aplicativo já instalado.
 
 ## ⚖️ Aviso sobre conteúdo
 

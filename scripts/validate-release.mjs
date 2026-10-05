@@ -2,7 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const requestedVersion = process.argv[2];
-if (!requestedVersion) throw new Error('Uso: node scripts/validate-release.mjs <versão>');
+const ciMode = process.argv.includes('--ci');
+const resumeMode = process.argv.includes('--resume');
+if (!requestedVersion) throw new Error('Uso: node scripts/validate-release.mjs <versão> [--ci|--resume]');
 
 function configFrom(source) {
   const version = source.match(/version:\s*['"]([^'"]+)['"]/)?.[1];
@@ -20,11 +22,13 @@ function newer(left, right) {
 const current = configFrom(readFileSync(new URL('../app.config.ts', import.meta.url), 'utf8'));
 const normalized = requestedVersion.replace(/^v/i, '');
 if (current.version !== normalized) throw new Error(`Versão divergente: recebeu ${normalized}, mas app.config.ts contém ${current.version}.`);
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+if (packageVersion !== current.version) throw new Error(`Versão divergente: package.json contém ${packageVersion}, mas app.config.ts contém ${current.version}.`);
 
 const tags = execFileSync('git', ['tag', '--sort=-v:refname'], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
 const currentTag = `v${normalized}`;
-if (tags.includes(currentTag)) throw new Error(`A tag ${currentTag} já existe.`);
-const previousTag = tags.find(tag => /^v?\d+\.\d+\.\d+/.test(tag));
+if (tags.includes(currentTag) && !ciMode && !resumeMode) throw new Error(`A tag ${currentTag} já existe.`);
+const previousTag = tags.find(tag => tag !== currentTag && /^v?\d+\.\d+\.\d+/.test(tag));
 if (previousTag) {
   const previousSource = execFileSync('git', ['show', `${previousTag}:app.config.ts`], { encoding: 'utf8' });
   const previous = configFrom(previousSource);
